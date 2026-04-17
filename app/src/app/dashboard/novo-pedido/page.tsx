@@ -205,30 +205,54 @@ function Etapa1({
 
       {modalCadastro && (
         <div className="modal-overlay" onClick={() => setModalCadastro(false)}>
-          <div className="modal-card" style={{ maxWidth: 480 }} onClick={ev => ev.stopPropagation()}>
-            <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 18 }}>Novo Cliente</h3>
+          <div className="modal-card" style={{ maxWidth: 520 }} onClick={ev => ev.stopPropagation()}>
+            <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>Novo Cliente</h3>
             <form onSubmit={handleCadastrar}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <input className="input" placeholder="Nome *" value={cadastroForm.nome} onChange={e => setCadastroForm(p => ({ ...p, nome: e.target.value }))} required />
-                <input className="input" placeholder="Telefone *" value={cadastroForm.telefone} onChange={e => setCadastroForm(p => ({ ...p, telefone: formatTelefone(e.target.value) }))} required />
-                <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Endere\u00e7o de Entrega</p>
-                {enderecos.map((en, idx) => (
-                  <div key={idx} style={{ background: '#F5F5F5', borderRadius: 8, padding: 10, border: '0.5px solid var(--border)' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
-                      <input className="input" placeholder="Logradouro" value={en.logradouro} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, logradouro: e.target.value } : x))} />
-                      <input className="input" placeholder="N\u00famero" value={en.numero} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, numero: e.target.value } : x))} />
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <input className="input" placeholder="Bairro" value={en.bairro} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, bairro: e.target.value } : x))} />
-                      <input className="input" placeholder="Refer\u00eancia" value={en.referencia} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, referencia: e.target.value } : x))} />
-                    </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text-muted)' }}>Nome *</label>
+                  <input className="input" placeholder="Nome completo" value={cadastroForm.nome} onChange={e => setCadastroForm(p => ({ ...p, nome: e.target.value }))} required />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text-muted)' }}>Telefone *</label>
+                  <input className="input" placeholder="(XX) XXXXX-XXXX" value={cadastroForm.telefone} onChange={e => setCadastroForm(p => ({ ...p, telefone: formatTelefone(e.target.value) }))} required />
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Endere&#xE7;os</p>
+                    <button type="button" className="btn-outline" style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => setEnderecos(prev => [...prev, { ...emptyEnderecoForm }])}>
+                      + Endere&#xE7;o
+                    </button>
                   </div>
-                ))}
+                  {enderecos.map((en, idx) => (
+                    <div key={idx} style={{ background: '#F9F9F9', borderRadius: 8, padding: 12, marginBottom: 8, border: '0.5px solid var(--border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>Endere&#xE7;o {idx + 1}</p>
+                        {idx > 0 && (
+                          <button type="button" style={{ background: 'none', border: 'none', color: '#A32D2D', cursor: 'pointer', fontSize: 12 }} onClick={() => setEnderecos(prev => prev.filter((_, i) => i !== idx))}>
+                            Remover
+                          </button>
+                        )}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
+                        <input className="input" placeholder="Logradouro *" value={en.logradouro} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, logradouro: e.target.value } : x))} />
+                        <input className="input" placeholder="N&#xFA;mero *" value={en.numero} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, numero: e.target.value } : x))} />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                        <input className="input" placeholder="Bairro *" value={en.bairro} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, bairro: e.target.value } : x))} />
+                        <input className="input" placeholder="Complemento" value={en.complemento} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, complemento: e.target.value } : x))} />
+                      </div>
+                      <input className="input" placeholder="Refer&#xEA;ncia" value={en.referencia} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, referencia: e.target.value } : x))} />
+                    </div>
+                  ))}
+                </div>
+
                 {erroForm && <p style={{ color: 'var(--badge-danger-text)', fontSize: 12, background: 'var(--badge-danger-bg)', padding: '8px 12px', borderRadius: 8 }}>{erroForm}</p>}
               </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
                 <button type="button" className="btn-outline" onClick={() => setModalCadastro(false)}>Cancelar</button>
-                <button type="submit" className="btn-primary" disabled={salvando}>{salvando ? 'Salvando...' : 'Cadastrar'}</button>
+                <button type="submit" className="btn-primary" disabled={salvando}>{salvando ? 'Salvando...' : 'Cadastrar Cliente'}</button>
               </div>
             </form>
           </div>
