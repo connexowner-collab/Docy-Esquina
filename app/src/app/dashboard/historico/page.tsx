@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { imprimirComanda } from '@/lib/print/printService'
 
 type ItemPedido = { id: number; nome_snapshot: string; quantidade: number; preco_snapshot: number; subtotal: number }
 type ClientePedido = { id: number; nome: string; telefone: string }
-type EnderecoPedido = { id: number; logradouro: string; numero: string; bairro: string }
+type EnderecoPedido = { id: number; logradouro: string; numero: string; bairro: string; referencia: string | null }
 type Pedido = {
   id: number
   numero_seq: number
@@ -223,7 +224,7 @@ export default function HistoricoPage() {
               <th style={{ padding: '10px 12px', textAlign: 'right' }}>Entrega</th>
               <th style={{ padding: '10px 12px', textAlign: 'right' }}>Total</th>
               <th style={{ padding: '10px 12px', textAlign: 'center' }}>Pagamento</th>
-              <th style={{ padding: '10px 12px', textAlign: 'center' }}>A\u00e7\u00f5es</th>
+              <th style={{ padding: '10px 12px', textAlign: 'center' }}>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -255,7 +256,24 @@ export default function HistoricoPage() {
                   </span>
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                  <button className="btn-outline" style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => alert(`Pedido #${p.numero_seq}\n${p.clientes?.nome}\nTotal: ${fmtMoeda(Number(p.total))}`)}>
+                  <button
+                    className="btn-outline"
+                    style={{ fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    onClick={() => imprimirComanda({
+                      numero_seq: p.numero_seq,
+                      created_at: p.created_at,
+                      clientes: { nome: p.clientes?.nome ?? '', telefone: p.clientes?.telefone ?? '' },
+                      enderecos: { logradouro: p.enderecos?.logradouro ?? '', numero: p.enderecos?.numero ?? '', bairro: p.enderecos?.bairro ?? '', referencia: p.enderecos?.referencia ?? null },
+                      itens_pedido: (p.itens_pedido ?? []).map(i => ({ nome_snapshot: i.nome_snapshot, quantidade: i.quantidade, preco_snapshot: i.preco_snapshot, subtotal: i.subtotal })),
+                      subtotal: Number(p.subtotal),
+                      taxa_entrega: Number(p.taxa_entrega),
+                      total: Number(p.total),
+                      pagamento: p.pagamento,
+                      troco: p.troco,
+                      observacoes: p.observacoes,
+                    })}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                     Reimprimir
                   </button>
                 </td>
