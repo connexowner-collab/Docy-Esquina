@@ -24,6 +24,7 @@ type Cliente = {
 }
 
 type EnderecoForm = {
+  id?: number
   logradouro: string
   numero: string
   complemento: string
@@ -90,11 +91,13 @@ export default function ClientesPage() {
     setClienteForm({ nome: cliente.nome, telefone: formatTelefone(cliente.telefone) })
     setEnderecos(cliente.enderecos.length > 0
       ? cliente.enderecos.map(e => ({
+          id: e.id,
           logradouro: e.logradouro,
           numero: e.numero,
           complemento: e.complemento ?? '',
           bairro: e.bairro,
           referencia: e.referencia ?? '',
+          distancia_km: e.distancia_km != null ? String(e.distancia_km) : '',
         }))
       : [{ ...emptyEndereco }]
     )
@@ -119,9 +122,36 @@ export default function ClientesPage() {
           body: JSON.stringify({ nome: clienteForm.nome, telefone: clienteForm.telefone }),
         })
         if (!res.ok) throw new Error((await res.json()).error || 'Erro ao atualizar')
-        const updated: Cliente = await res.json()
-        setClientes(prev => prev.map(c => c.id === updated.id ? updated : c))
-        setSelecionado(updated)
+
+        // Atualiza endereços existentes e adiciona novos
+        await Promise.all(enderecosFilled.map(en => {
+          const payload = {
+            logradouro: en.logradouro,
+            numero: en.numero,
+            complemento: en.complemento || null,
+            bairro: en.bairro,
+            referencia: en.referencia || null,
+            distancia_km: en.distancia_km ? Number(en.distancia_km) : null,
+          }
+          if (en.id) {
+            return fetch(`/api/clientes/${editando.id}/enderecos/${en.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            })
+          } else {
+            return fetch(`/api/clientes/${editando.id}/enderecos`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            })
+          }
+        }))
+
+        // Recarrega cliente atualizado
+        const refreshed = await fetch(`/api/clientes/${editando.id}`).then(r => r.json())
+        setClientes(prev => prev.map(c => c.id === refreshed.id ? refreshed : c))
+        setSelecionado(refreshed)
       } else {
         const res = await fetch('/api/clientes', {
           method: 'POST',
@@ -336,8 +366,7 @@ export default function ClientesPage() {
                   />
                 </div>
 
-                {!editando && (
-                  <div>
+                <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                       <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
                         Endere&#xE7;os
@@ -383,7 +412,6 @@ export default function ClientesPage() {
                       </div>
                     ))}
                   </div>
-                )}
 
                 {formError && (
                   <p style={{ color: 'var(--badge-danger-text)', fontSize: 12, background: 'var(--badge-danger-bg)', padding: '8px 12px', borderRadius: 8 }}>
