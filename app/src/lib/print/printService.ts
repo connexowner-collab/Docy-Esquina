@@ -69,11 +69,13 @@ function buildComandaHTML(pedido: DadosPedido): string {
     `END: ${pedido.enderecos.logradouro}, ${pedido.enderecos.numero}`,
     `     ${pedido.enderecos.bairro}${pedido.enderecos.referencia ? ' — ' + pedido.enderecos.referencia : ''}`,
     SEP2,
-    linha(pad('ITEM', 22), linha(pad('QTD', 5), pad('TOTAL', 9, true))),
+    pad('ITEM', 24) + pad('QTD', 5) + pad('TOTAL', 13, true),
     SEP2,
     ...pedido.itens_pedido.map(item => {
-      const nomeItem = item.nome_snapshot.slice(0, 22)
-      return linha(pad(nomeItem, 22), linha(pad(String(item.quantidade) + 'x', 5), pad(fmtMoeda(item.subtotal), 9, true)))
+      const nomeItem = pad(item.nome_snapshot, 24)
+      const qty = pad(String(item.quantidade) + 'x', 5)
+      const total = pad(fmtMoeda(item.subtotal), 13, true)
+      return nomeItem + qty + total
     }),
     SEP2,
     linha('Subtotal:', fmtMoeda(pedido.subtotal)),
@@ -102,7 +104,7 @@ function buildComandaHTML(pedido: DadosPedido): string {
   return `<!DOCTYPE html><html><head>
     <style>
       @media print { body { margin: 0; } @page { margin: 3mm; size: 80mm auto; } }
-      body { font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; padding: 4px; }
+      body { font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; padding: 4px; width: 74mm; box-sizing: border-box; }
       div { white-space: pre; }
       .logo-wrap { text-align: center; margin-bottom: 6px; }
       .logo-wrap img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
@@ -147,7 +149,7 @@ function buildResumoHTML(dados: DadosResumo): string {
   return `<!DOCTYPE html><html><head>
     <style>
       @media print { body { margin: 0; } @page { margin: 3mm; size: 80mm auto; } }
-      body { font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; padding: 4px; }
+      body { font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; padding: 4px; width: 74mm; box-sizing: border-box; }
       div { white-space: pre; }
       .logo-wrap { text-align: center; margin-bottom: 6px; }
       .logo-wrap img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }

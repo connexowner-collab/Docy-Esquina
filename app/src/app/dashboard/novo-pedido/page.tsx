@@ -11,7 +11,7 @@ type Categoria = { id: number; nome: string; ordem: number }
 type ItemCardapio = { id: number; categoria_id: number; nome: string; descricao: string | null; preco: number; ativo: boolean; categorias: Categoria }
 type ItemPedido = { item: ItemCardapio; quantidade: number }
 type Pagamento = 'dinheiro' | 'pix' | 'debito' | 'credito'
-type PedidoCriado = { id: number; numero_seq: number; total: number; pagamento: string; clientes: Cliente; itens_pedido: Array<{ nome_snapshot: string; quantidade: number; preco_snapshot: number }> }
+type PedidoCriado = { id: number; numero_seq: number; total: number; pagamento: string; troco?: number | null; clientes: Cliente; itens_pedido: Array<{ nome_snapshot: string; quantidade: number; preco_snapshot: number }> }
 
 type EnderecoForm = { logradouro: string; numero: string; complemento: string; bairro: string; referencia: string; distancia_km: string }
 const emptyEnderecoForm: EnderecoForm = { logradouro: '', numero: '', complemento: '', bairro: '', referencia: '', distancia_km: '' }
@@ -872,6 +872,7 @@ function TelaConfirmacao({
       taxa_entrega: taxaEntrega,
       total: Number(pedido.total),
       pagamento: pedido.pagamento,
+      troco: pedido.troco ?? null,
       observacoes: observacoes || null,
     })
   }
