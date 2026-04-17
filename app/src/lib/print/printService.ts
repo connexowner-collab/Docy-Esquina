@@ -97,12 +97,18 @@ function buildComandaHTML(pedido: DadosPedido): string {
     .map(l => `<div>${l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`)
     .join('\n')
 
+  const logoUrl = typeof window !== 'undefined' ? `${window.location.origin}/LOGO.png` : '/LOGO.png'
+
   return `<!DOCTYPE html><html><head>
     <style>
       @media print { body { margin: 0; } @page { margin: 3mm; size: 80mm auto; } }
       body { font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; padding: 4px; }
       div { white-space: pre; }
-    </style></head><body>${conteudo}</body></html>`
+      .logo-wrap { text-align: center; margin-bottom: 6px; }
+      .logo-wrap img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+    </style></head><body>
+    <div class="logo-wrap"><img src="${logoUrl}" alt="Logo" /></div>
+    ${conteudo}</body></html>`
 }
 
 function buildResumoHTML(dados: DadosResumo): string {
@@ -136,12 +142,18 @@ function buildResumoHTML(dados: DadosResumo): string {
     .map(l => `<div>${l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`)
     .join('\n')
 
+  const logoUrl = typeof window !== 'undefined' ? `${window.location.origin}/LOGO.png` : '/LOGO.png'
+
   return `<!DOCTYPE html><html><head>
     <style>
       @media print { body { margin: 0; } @page { margin: 3mm; size: 80mm auto; } }
       body { font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; padding: 4px; }
       div { white-space: pre; }
-    </style></head><body>${conteudo}</body></html>`
+      .logo-wrap { text-align: center; margin-bottom: 6px; }
+      .logo-wrap img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+    </style></head><body>
+    <div class="logo-wrap"><img src="${logoUrl}" alt="Logo" /></div>
+    ${conteudo}</body></html>`
 }
 
 export function imprimirComanda(pedido: DadosPedido): void {
