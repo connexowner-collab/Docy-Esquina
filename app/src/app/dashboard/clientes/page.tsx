@@ -12,6 +12,7 @@ type Endereco = {
   referencia: string | null
   lat: number | null
   lng: number | null
+  distancia_km: number | null
 }
 
 type Cliente = {
@@ -28,9 +29,10 @@ type EnderecoForm = {
   complemento: string
   bairro: string
   referencia: string
+  distancia_km: string
 }
 
-const emptyEndereco: EnderecoForm = { logradouro: '', numero: '', complemento: '', bairro: '', referencia: '' }
+const emptyEndereco: EnderecoForm = { logradouro: '', numero: '', complemento: '', bairro: '', referencia: '', distancia_km: '' }
 
 function formatTelefone(v: string): string {
   const d = v.replace(/\D/g, '').slice(0, 11)
@@ -275,6 +277,9 @@ export default function ClientesPage() {
                       <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                         {end.bairro}{end.referencia ? ` · ${end.referencia}` : ''}
                       </p>
+                      {end.distancia_km ? (
+                        <p style={{ fontSize: 11, color: '#E8870A', fontWeight: 600, marginTop: 2 }}>{end.distancia_km} km da loja</p>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -361,6 +366,19 @@ export default function ClientesPage() {
                         </div>
                         <div style={{ marginTop: 8 }}>
                           <input className="input" placeholder="Refer&#xEA;ncia" value={en.referencia} onChange={e => updateEndereco(idx, 'referencia', e.target.value)} />
+                        </div>
+                        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input
+                            className="input"
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            placeholder="Dist&#xE2;ncia em KM (ex: 3.5)"
+                            value={en.distancia_km}
+                            onChange={e => updateEndereco(idx, 'distancia_km', e.target.value)}
+                            style={{ flex: 1 }}
+                          />
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>km da loja</span>
                         </div>
                       </div>
                     ))}

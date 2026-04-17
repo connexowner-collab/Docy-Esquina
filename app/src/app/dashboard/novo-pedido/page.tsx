@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { imprimirComanda } from '@/lib/print/printService'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Endereco = { id: number; logradouro: string; numero: string; complemento: string | null; bairro: string; referencia: string | null; lat: number | null; lng: number | null }
+type Endereco = { id: number; logradouro: string; numero: string; complemento: string | null; bairro: string; referencia: string | null; lat: number | null; lng: number | null; distancia_km: number | null }
 type Cliente = { id: number; nome: string; telefone: string; enderecos: Endereco[] }
 type Categoria = { id: number; nome: string; ordem: number }
 type ItemCardapio = { id: number; categoria_id: number; nome: string; descricao: string | null; preco: number; ativo: boolean; categorias: Categoria }
@@ -13,8 +13,8 @@ type ItemPedido = { item: ItemCardapio; quantidade: number }
 type Pagamento = 'dinheiro' | 'pix' | 'debito' | 'credito'
 type PedidoCriado = { id: number; numero_seq: number; total: number; pagamento: string; clientes: Cliente; itens_pedido: Array<{ nome_snapshot: string; quantidade: number; preco_snapshot: number }> }
 
-type EnderecoForm = { logradouro: string; numero: string; complemento: string; bairro: string; referencia: string }
-const emptyEnderecoForm: EnderecoForm = { logradouro: '', numero: '', complemento: '', bairro: '', referencia: '' }
+type EnderecoForm = { logradouro: string; numero: string; complemento: string; bairro: string; referencia: string; distancia_km: string }
+const emptyEnderecoForm: EnderecoForm = { logradouro: '', numero: '', complemento: '', bairro: '', referencia: '', distancia_km: '' }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatTelefone(v: string): string {
@@ -245,6 +245,19 @@ function Etapa1({
                         <input className="input" placeholder="Complemento" value={en.complemento} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, complemento: e.target.value } : x))} />
                       </div>
                       <input className="input" placeholder="Refer&#xEA;ncia" value={en.referencia} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, referencia: e.target.value } : x))} />
+                      <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          className="input"
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          placeholder="Dist&#xE2;ncia em KM (ex: 3.5)"
+                          value={en.distancia_km}
+                          onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, distancia_km: e.target.value } : x))}
+                          style={{ flex: 1 }}
+                        />
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>km da loja</span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -281,18 +294,26 @@ function Etapa2({
   const [enderecos, setEnderecos] = useState<Endereco[]>(cliente.enderecos)
 
   async function calcularFrete(end: Endereco) {
-    if (!end.lat || !end.lng) {
-      setFreteInfo(null)
-      setErroFrete('Endere\u00e7o sem coordenadas — frete n\u00e3o calculado')
-      return
-    }
     setCalculando(true)
     setErroFrete('')
     try {
+      // Usa KM manual salvo no endereço se disponível; senão tenta coordenadas
+      const body = end.distancia_km && end.distancia_km > 0
+        ? { km_manual: end.distancia_km }
+        : end.lat && end.lng
+          ? { lat_destino: end.lat, lng_destino: end.lng }
+          : null
+
+      if (!body) {
+        setFreteInfo(null)
+        setErroFrete('Informe a distância em KM para calcular o frete.')
+        return
+      }
+
       const res = await fetch('/api/frete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat_destino: end.lat, lng_destino: end.lng }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro ao calcular frete')
@@ -317,7 +338,10 @@ function Etapa2({
       const res = await fetch(`/api/clientes/${cliente.id}/enderecos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(novoEndForm),
+        body: JSON.stringify({
+          ...novoEndForm,
+          distancia_km: novoEndForm.distancia_km ? Number(novoEndForm.distancia_km) : null,
+        }),
       })
       if (!res.ok) throw new Error('Erro ao salvar endere\u00e7o')
       const novo: Endereco = await res.json()
@@ -361,7 +385,14 @@ function Etapa2({
             }}
           >
             <p style={{ fontWeight: 600, fontSize: 13 }}>{end.logradouro}, {end.numero}</p>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{end.bairro}{end.referencia ? ` · ${end.referencia}` : ''}</p>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>
+              {end.bairro}{end.referencia ? ` · ${end.referencia}` : ''}
+            </p>
+            {end.distancia_km ? (
+              <p style={{ fontSize: 11, color: '#E8870A', fontWeight: 600, marginTop: 2 }}>{end.distancia_km} km da loja</p>
+            ) : (
+              <p style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>KM não informado</p>
+            )}
           </div>
         ))}
 
@@ -406,7 +437,20 @@ function Etapa2({
                 </div>
                 <input className="input" placeholder="Bairro *" value={novoEndForm.bairro} onChange={e => setNovoEndForm(p => ({ ...p, bairro: e.target.value }))} required />
                 <input className="input" placeholder="Complemento" value={novoEndForm.complemento} onChange={e => setNovoEndForm(p => ({ ...p, complemento: e.target.value }))} />
-                <input className="input" placeholder="Refer\u00eancia" value={novoEndForm.referencia} onChange={e => setNovoEndForm(p => ({ ...p, referencia: e.target.value }))} />
+                <input className="input" placeholder="Referência" value={novoEndForm.referencia} onChange={e => setNovoEndForm(p => ({ ...p, referencia: e.target.value }))} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    className="input"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="Distância em KM (ex: 3.5)"
+                    value={novoEndForm.distancia_km}
+                    onChange={e => setNovoEndForm(p => ({ ...p, distancia_km: e.target.value }))}
+                    style={{ flex: 1 }}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>km da loja</span>
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
                 <button type="button" className="btn-outline" onClick={() => setNovoEnd(false)}>Cancelar</button>
