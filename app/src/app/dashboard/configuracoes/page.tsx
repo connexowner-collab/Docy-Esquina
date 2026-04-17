@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import PrintConfig from '@/components/PrintConfig'
 
 type Configuracao = {
   nome_estabelecimento: string
@@ -104,6 +105,8 @@ export default function ConfiguracoesPage() {
           {saving ? 'Salvando...' : 'Salvar Configurações'}
         </button>
       </form>
+
+      <PrintConfig />
     </div>
   )
 }

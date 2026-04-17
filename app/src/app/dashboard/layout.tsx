@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import ResumoDiaModal from '@/components/ResumoDiaModal'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -19,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <main className="flex-1 p-8 overflow-auto">
         {children}
       </main>
+      <ResumoDiaModal />
     </div>
   )
 }
