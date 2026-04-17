@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { imprimirComanda } from '@/lib/print/printService'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Endereco = { id: number; logradouro: string; numero: string; complemento: string | null; bairro: string; referencia: string | null; lat: number | null; lng: number | null }
@@ -790,7 +791,37 @@ function Etapa4({
 }
 
 // ─── Confirmação ──────────────────────────────────────────────────────────────
-function TelaConfirmacao({ pedido, onNovoPedido }: { pedido: PedidoCriado; onNovoPedido: () => void }) {
+function TelaConfirmacao({
+  pedido, subtotal, taxaEntrega, endereco, observacoes, onNovoPedido,
+}: {
+  pedido: PedidoCriado
+  subtotal: number
+  taxaEntrega: number
+  endereco: Endereco | null
+  observacoes: string
+  onNovoPedido: () => void
+}) {
+  function handleImprimir() {
+    if (!endereco) return
+    imprimirComanda({
+      numero_seq: pedido.numero_seq,
+      created_at: new Date().toISOString(),
+      clientes: { nome: pedido.clientes.nome, telefone: pedido.clientes.telefone },
+      enderecos: { logradouro: endereco.logradouro, numero: endereco.numero, bairro: endereco.bairro, referencia: endereco.referencia },
+      itens_pedido: pedido.itens_pedido.map(it => ({
+        nome_snapshot: it.nome_snapshot,
+        quantidade: it.quantidade,
+        preco_snapshot: it.preco_snapshot,
+        subtotal: it.preco_snapshot * it.quantidade,
+      })),
+      subtotal,
+      taxa_entrega: taxaEntrega,
+      total: Number(pedido.total),
+      pagamento: pedido.pagamento,
+      observacoes: observacoes || null,
+    })
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, padding: '40px 0' }}>
       <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#C0392B', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700 }}>
@@ -806,9 +837,19 @@ function TelaConfirmacao({ pedido, onNovoPedido }: { pedido: PedidoCriado; onNov
           <span>Total</span><span style={{ color: '#C0392B' }}>{fmtMoeda(Number(pedido.total))}</span>
         </div>
       </div>
-      <button className="btn-primary" onClick={onNovoPedido}>
-        + Novo Pedido
-      </button>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button
+          className="btn-outline"
+          onClick={handleImprimir}
+          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Imprimir Comanda
+        </button>
+        <button className="btn-primary" onClick={onNovoPedido}>
+          + Novo Pedido
+        </button>
+      </div>
     </div>
   )
 }
@@ -850,7 +891,14 @@ function NovoPedidoContent() {
       {!pedidoConfirmado && <Stepper etapa={etapa} />}
 
       {pedidoConfirmado ? (
-        <TelaConfirmacao pedido={pedidoConfirmado} onNovoPedido={resetar} />
+        <TelaConfirmacao
+          pedido={pedidoConfirmado}
+          subtotal={subtotal}
+          taxaEntrega={taxaEntrega}
+          endereco={endereco}
+          observacoes={observacoes}
+          onNovoPedido={resetar}
+        />
       ) : etapa === 1 ? (
         <Etapa1
           initialClienteId={initialClienteId}
