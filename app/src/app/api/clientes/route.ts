@@ -1,0 +1,59 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+
+export async function GET(request: NextRequest) {
+  const supabase = await createClient()
+  const { searchParams } = new URL(request.url)
+  const telefone = searchParams.get('telefone')
+
+  let query = supabase
+    .from('clientes')
+    .select('*, enderecos(*)')
+    .order('nome', { ascending: true })
+
+  if (telefone) {
+    const clean = telefone.replace(/\D/g, '')
+    query = query.or(`telefone.ilike.%${clean}%,nome.ilike.%${telefone}%`)
+  }
+
+  const { data, error } = await query
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+}
+
+export async function POST(request: NextRequest) {
+  const supabase = await createClient()
+  const body = await request.json()
+  const { nome, telefone, enderecos } = body
+
+  if (!nome || !telefone) {
+    return NextResponse.json({ error: 'Nome e telefone são obrigatórios' }, { status: 400 })
+  }
+
+  const { data: cliente, error: clienteError } = await supabase
+    .from('clientes')
+    .insert({ nome, telefone: telefone.replace(/\D/g, '') })
+    .select()
+    .single()
+
+  if (clienteError) {
+    if (clienteError.code === '23505') {
+      return NextResponse.json({ error: 'Telefone já cadastrado' }, { status: 409 })
+    }
+    return NextResponse.json({ error: clienteError.message }, { status: 500 })
+  }
+
+  if (enderecos && Array.isArray(enderecos) && enderecos.length > 0) {
+    const enderecosMapped = enderecos.map((e: Record<string, unknown>) => ({ ...e, cliente_id: cliente.id }))
+    const { error: enderecoError } = await supabase.from('enderecos').insert(enderecosMapped)
+    if (enderecoError) return NextResponse.json({ error: enderecoError.message }, { status: 500 })
+  }
+
+  const { data: clienteCompleto } = await supabase
+    .from('clientes')
+    .select('*, enderecos(*)')
+    .eq('id', cliente.id)
+    .single()
+
+  return NextResponse.json(clienteCompleto, { status: 201 })
+}
