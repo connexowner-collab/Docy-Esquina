@@ -295,10 +295,10 @@ export default function ClientesPage() {
               </div>
 
               <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10, letterSpacing: 0.5 }}>
-                Endere&#xE7;os
+                Endereços
               </p>
               {!clienteDetalhe.enderecos?.length ? (
-                <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>Nenhum endere&#xE7;o cadastrado.</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>Nenhum endereço cadastrado.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
                   {clienteDetalhe.enderecos.map(end => (
@@ -369,16 +369,16 @@ export default function ClientesPage() {
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                       <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                        Endere&#xE7;os
+                        Endereços
                       </p>
                       <button type="button" className="btn-outline" style={{ fontSize: 11, padding: '3px 8px' }} onClick={addEndereco}>
-                        + Endere&#xE7;o
+                        + Endereço
                       </button>
                     </div>
                     {enderecos.map((en, idx) => (
                       <div key={idx} style={{ background: '#F9F9F9', borderRadius: 8, padding: 12, marginBottom: 8, border: '0.5px solid var(--border)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>Endere&#xE7;o {idx + 1}</p>
+                          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>Endereço {idx + 1}</p>
                           {idx > 0 && (
                             <button type="button" style={{ background: 'none', border: 'none', color: '#A32D2D', cursor: 'pointer', fontSize: 12 }} onClick={() => removeEndereco(idx)}>
                               Remover
@@ -387,14 +387,14 @@ export default function ClientesPage() {
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
                           <input className="input" placeholder="Logradouro *" value={en.logradouro} onChange={e => updateEndereco(idx, 'logradouro', e.target.value)} />
-                          <input className="input" placeholder="N&#xFA;mero *" value={en.numero} onChange={e => updateEndereco(idx, 'numero', e.target.value)} />
+                          <input className="input" placeholder="Número *" value={en.numero} onChange={e => updateEndereco(idx, 'numero', e.target.value)} />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                           <input className="input" placeholder="Bairro *" value={en.bairro} onChange={e => updateEndereco(idx, 'bairro', e.target.value)} />
                           <input className="input" placeholder="Complemento" value={en.complemento} onChange={e => updateEndereco(idx, 'complemento', e.target.value)} />
                         </div>
                         <div style={{ marginTop: 8 }}>
-                          <input className="input" placeholder="Refer&#xEA;ncia" value={en.referencia} onChange={e => updateEndereco(idx, 'referencia', e.target.value)} />
+                          <input className="input" placeholder="Referência" value={en.referencia} onChange={e => updateEndereco(idx, 'referencia', e.target.value)} />
                         </div>
                         <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
                           <input
@@ -402,7 +402,7 @@ export default function ClientesPage() {
                             type="number"
                             step="0.1"
                             min="0"
-                            placeholder="Dist&#xE2;ncia em KM (ex: 3.5)"
+                            placeholder="Distância em KM (ex: 3.5)"
                             value={en.distancia_km}
                             onChange={e => updateEndereco(idx, 'distancia_km', e.target.value)}
                             style={{ flex: 1 }}
@@ -425,7 +425,7 @@ export default function ClientesPage() {
                   Cancelar
                 </button>
                 <button type="submit" className="btn-primary" disabled={saving}>
-                  {saving ? 'Salvando...' : editando ? 'Salvar Altera&#xE7;&#xF5;es' : 'Cadastrar Cliente'}
+                  {saving ? 'Salvando...' : editando ? 'Salvar Alterações' : 'Cadastrar Cliente'}
                 </button>
               </div>
             </form>
