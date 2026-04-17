@@ -160,10 +160,15 @@ export default function ClientesPage() {
 
   return (
     <div>
-      {/* Topbar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>Clientes</h2>
-        <button className="btn-primary" onClick={openNovoCliente}>+ Novo Cliente</button>
+      {/* Page header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#1a1a1a', margin: 0 }}>Clientes</h1>
+          <p style={{ fontSize: 14, color: '#888', margin: '6px 0 0' }}>Gerencie sua base de clientes e endereços</p>
+        </div>
+        <button onClick={openNovoCliente} style={{ background: '#C0392B', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+          + Novo Cliente
+        </button>
       </div>
 
       {/* Grid 2fr 1fr */}

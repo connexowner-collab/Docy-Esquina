@@ -156,14 +156,17 @@ export default function CardapioPage() {
 
   return (
     <div>
-      {/* Topbar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>Cardápio</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn-outline" onClick={() => { setCatForm(''); setModalCategoria(true) }}>
+      {/* Page header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#1a1a1a', margin: 0 }}>Cardápio</h1>
+          <p style={{ fontSize: 14, color: '#888', margin: '6px 0 0' }}>Gerencie itens e categorias do seu cardápio</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={() => { setCatForm(''); setModalCategoria(true) }} style={{ background: '#fff', color: '#1a1a1a', border: '1.5px solid #e8e8ee', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             + Categoria
           </button>
-          <button className="btn-primary" onClick={openNovoItem} disabled={categorias.length === 0}>
+          <button onClick={openNovoItem} disabled={categorias.length === 0} style={{ background: '#C0392B', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: categorias.length === 0 ? 'not-allowed' : 'pointer', opacity: categorias.length === 0 ? 0.5 : 1 }}>
             + Novo Item
           </button>
         </div>

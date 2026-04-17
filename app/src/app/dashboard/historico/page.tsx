@@ -143,43 +143,37 @@ export default function HistoricoPage() {
 
   return (
     <div>
-      {/* Topbar */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+      {/* Page header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>Hist\u00f3rico de Pedidos</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>Consulte e exporte todos os pedidos do estabelecimento</p>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#1a1a1a', margin: 0 }}>Histórico de Pedidos</h1>
+          <p style={{ fontSize: 14, color: '#888', margin: '6px 0 0' }}>Consulte e exporte todos os pedidos do estabelecimento</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn-outline" onClick={() => { fetchResumo(); setShowResumo(true) }}>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={() => { fetchResumo(); setShowResumo(true) }} style={{ background: '#fff', color: '#1a1a1a', border: '1.5px solid #e8e8ee', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             Resumo do Dia
           </button>
-          <button className="btn-outline" onClick={exportarExcel}>
+          <button onClick={exportarExcel} style={{ background: '#C0392B', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             Exportar Excel
           </button>
         </div>
       </div>
 
-      {/* Cards métricas */}
+      {/* Metric cards */}
       {resumo && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-          <div className="card" style={{ padding: '14px 16px' }}>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Pedidos hoje</p>
-            <p style={{ fontSize: 22, fontWeight: 700 }}>{resumo.totalPedidos}</p>
-            <VariacaoChip value={resumo.variacao.pedidos} />
-          </div>
-          <div className="card" style={{ padding: '14px 16px' }}>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Faturamento</p>
-            <p style={{ fontSize: 18, fontWeight: 700, color: '#0F6E56' }}>{fmtMoeda(resumo.faturamentoTotal)}</p>
-            <VariacaoChip value={resumo.variacao.faturamento} />
-          </div>
-          <div className="card" style={{ padding: '14px 16px' }}>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Ticket M\u00e9dio</p>
-            <p style={{ fontSize: 18, fontWeight: 700 }}>{fmtMoeda(resumo.ticketMedio)}</p>
-          </div>
-          <div className="card" style={{ padding: '14px 16px' }}>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Taxa M\u00e9dia</p>
-            <p style={{ fontSize: 18, fontWeight: 700 }}>{fmtMoeda(resumo.taxaMediaEntrega)}</p>
-          </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+          {[
+            { label: 'Pedidos hoje', value: String(resumo.totalPedidos), chip: resumo.variacao.pedidos, color: '#1a1a1a' },
+            { label: 'Faturamento', value: fmtMoeda(resumo.faturamentoTotal), chip: resumo.variacao.faturamento, color: '#0F6E56' },
+            { label: 'Ticket Médio', value: fmtMoeda(resumo.ticketMedio), chip: null, color: '#1a1a1a' },
+            { label: 'Taxa Média', value: fmtMoeda(resumo.taxaMediaEntrega), chip: null, color: '#1a1a1a' },
+          ].map(card => (
+            <div key={card.label} style={{ background: '#fff', borderRadius: 14, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 8px' }}>{card.label}</p>
+              <p style={{ fontSize: 22, fontWeight: 800, color: card.color, margin: '0 0 6px' }}>{card.value}</p>
+              <VariacaoChip value={card.chip} />
+            </div>
+          ))}
         </div>
       )}
 
