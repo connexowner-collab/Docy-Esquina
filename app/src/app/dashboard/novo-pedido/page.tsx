@@ -824,9 +824,19 @@ function Etapa4({
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
               <span>Taxa entrega</span><span>{fmtMoeda(taxaEntrega)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700, marginBottom: troco > 0 ? 3 : 0 }}>
               <span>Total</span><span style={{ color: '#C0392B' }}>{fmtMoeda(total)}</span>
             </div>
+            {troco > 0 && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3, color: 'var(--text-muted)' }}>
+                  <span>Recebido</span><span>{fmtMoeda(total + troco)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: '#0F6E56' }}>
+                  <span>Troco</span><span>{fmtMoeda(troco)}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
