@@ -5,7 +5,7 @@ export type DadosPedido = {
   created_at: string
   clientes: { nome: string; telefone: string }
   enderecos: { logradouro: string; numero: string; bairro: string; referencia?: string | null }
-  itens_pedido: { nome_snapshot: string; quantidade: number; preco_snapshot: number; subtotal: number }[]
+  itens_pedido: { nome_snapshot: string; quantidade: number; preco_snapshot: number; subtotal: number; observacao?: string | null }[]
   subtotal: number
   taxa_entrega: number
   total: number
@@ -95,9 +95,10 @@ function buildComandaHTML(pedido: DadosPedido): string {
     SEP2,
     pad('QTD', QTD_W) + pad('ITEM', ITEM_W) + pad('TOTAL', TOTAL_W, true),
     SEP2,
-    ...pedido.itens_pedido.flatMap(item =>
-      wrapItem(item.nome_snapshot, String(item.quantidade) + 'x', fmtMoeda(item.subtotal))
-    ),
+    ...pedido.itens_pedido.flatMap(item => [
+      ...wrapItem(item.nome_snapshot, String(item.quantidade) + 'x', fmtMoeda(item.subtotal)),
+      ...(item.observacao ? [`${' '.repeat(QTD_W)}> ${item.observacao}`] : []),
+    ]),
     SEP2,
     linha('Subtotal:', fmtMoeda(pedido.subtotal)),
     linha('Taxa de entrega:', fmtMoeda(pedido.taxa_entrega)),

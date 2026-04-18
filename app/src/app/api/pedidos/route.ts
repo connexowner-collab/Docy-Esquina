@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
     preco_snapshot: number
     quantidade: number
     subtotal: number
+    observacao?: string | null
   }>).map(item => ({
     pedido_id: pedido.id,
     item_cardapio_id: item.item_cardapio_id,
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
     preco_snapshot: item.preco_snapshot,
     quantidade: item.quantidade,
     subtotal: item.subtotal,
+    observacao: item.observacao ?? null,
   }))
 
   const { error: itensError } = await supabase.from('itens_pedido').insert(itensMapped)

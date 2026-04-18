@@ -9,7 +9,7 @@ type Endereco = { id: number; logradouro: string; numero: string; complemento: s
 type Cliente = { id: number; nome: string; telefone: string; enderecos: Endereco[] }
 type Categoria = { id: number; nome: string; ordem: number }
 type ItemCardapio = { id: number; categoria_id: number; nome: string; descricao: string | null; preco: number; ativo: boolean; categorias: Categoria }
-type ItemPedido = { item: ItemCardapio; quantidade: number }
+type ItemPedido = { item: ItemCardapio; quantidade: number; observacao?: string }
 type Pagamento = 'dinheiro' | 'pix' | 'debito' | 'credito'
 type PedidoCriado = { id: number; numero_seq: number; total: number; pagamento: string; troco?: number | null; clientes: Cliente; itens_pedido: Array<{ nome_snapshot: string; quantidade: number; preco_snapshot: number }> }
 
@@ -516,6 +516,10 @@ function Etapa3({
     setPedido(prev => prev.filter(p => p.item.id !== itemId))
   }
 
+  function updateObservacao(itemId: number, obs: string) {
+    setPedido(prev => prev.map(p => p.item.id === itemId ? { ...p, observacao: obs } : p))
+  }
+
   const subtotal = pedido.reduce((s, p) => s + Number(p.item.preco) * p.quantidade, 0)
   const taxaFinal = parseFloat(taxaManual) || 0
   const total = subtotal + taxaFinal
@@ -605,15 +609,23 @@ function Etapa3({
           ) : (
             <div style={{ marginTop: 12, marginBottom: 12 }}>
               {pedido.map(p => (
-                <div key={p.item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <button onClick={() => removeItem(p.item.id)} style={{ width: 22, height: 22, borderRadius: 6, border: '0.5px solid #CCC', background: '#fff', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>-</button>
-                    <span style={{ fontWeight: 700, fontSize: 13, minWidth: 20, textAlign: 'center' }}>{p.quantidade}</span>
-                    <button onClick={() => addItem(p.item)} style={{ width: 22, height: 22, borderRadius: 6, background: '#C0392B', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>+</button>
+                <div key={p.item.id} style={{ marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <button onClick={() => removeItem(p.item.id)} style={{ width: 22, height: 22, borderRadius: 6, border: '0.5px solid #CCC', background: '#fff', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>-</button>
+                      <span style={{ fontWeight: 700, fontSize: 13, minWidth: 20, textAlign: 'center' }}>{p.quantidade}</span>
+                      <button onClick={() => addItem(p.item)} style={{ width: 22, height: 22, borderRadius: 6, background: '#C0392B', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>+</button>
+                    </div>
+                    <span style={{ flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.item.nome}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>{fmtMoeda(Number(p.item.preco) * p.quantidade)}</span>
+                    <button onClick={() => deleteItem(p.item.id)} style={{ background: 'none', border: 'none', color: '#A32D2D', cursor: 'pointer', fontSize: 14 }}>&#xD7;</button>
                   </div>
-                  <span style={{ flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.item.nome}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>{fmtMoeda(Number(p.item.preco) * p.quantidade)}</span>
-                  <button onClick={() => deleteItem(p.item.id)} style={{ background: 'none', border: 'none', color: '#A32D2D', cursor: 'pointer', fontSize: 14 }}>&#xD7;</button>
+                  <input
+                    value={p.observacao ?? ''}
+                    onChange={e => updateObservacao(p.item.id, e.target.value)}
+                    placeholder="Obs: sem cebola..."
+                    style={{ width: '100%', marginTop: 4, fontSize: 11, padding: '3px 7px', borderRadius: 6, border: '0.5px solid #E8C97A', background: '#FFFBF0', color: '#7A5500', outline: 'none', boxSizing: 'border-box' }}
+                  />
                 </div>
               ))}
             </div>
@@ -711,6 +723,7 @@ function Etapa4({
         preco_snapshot: Number(p.item.preco),
         quantidade: p.quantidade,
         subtotal: Number(p.item.preco) * p.quantidade,
+        observacao: p.observacao || null,
       }))
       const res = await fetch('/api/pedidos', {
         method: 'POST',

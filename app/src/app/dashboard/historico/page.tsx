@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { imprimirComanda } from '@/lib/print/printService'
 
-type ItemPedido = { id: number; nome_snapshot: string; quantidade: number; preco_snapshot: number; subtotal: number }
+type ItemPedido = { id: number; nome_snapshot: string; quantidade: number; preco_snapshot: number; subtotal: number; observacao?: string | null }
 type ClientePedido = { id: number; nome: string; telefone: string }
 type EnderecoPedido = { id: number; logradouro: string; numero: string; bairro: string; referencia: string | null }
 type Pedido = {
@@ -264,7 +264,7 @@ export default function HistoricoPage() {
                       created_at: p.created_at,
                       clientes: { nome: p.clientes?.nome ?? '', telefone: p.clientes?.telefone ?? '' },
                       enderecos: { logradouro: p.enderecos?.logradouro ?? '', numero: p.enderecos?.numero ?? '', bairro: p.enderecos?.bairro ?? '', referencia: p.enderecos?.referencia ?? null },
-                      itens_pedido: (p.itens_pedido ?? []).map(i => ({ nome_snapshot: i.nome_snapshot, quantidade: i.quantidade, preco_snapshot: i.preco_snapshot, subtotal: i.subtotal })),
+                      itens_pedido: (p.itens_pedido ?? []).map(i => ({ nome_snapshot: i.nome_snapshot, quantidade: i.quantidade, preco_snapshot: i.preco_snapshot, subtotal: i.subtotal, observacao: i.observacao ?? null })),
                       subtotal: Number(p.subtotal),
                       taxa_entrega: Number(p.taxa_entrega),
                       total: Number(p.total),
