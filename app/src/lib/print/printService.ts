@@ -74,13 +74,13 @@ function buildComandaHTML(pedido: DadosPedido): string {
     `END: ${pedido.enderecos.logradouro}, ${pedido.enderecos.numero}`,
     `     ${pedido.enderecos.bairro}${pedido.enderecos.referencia ? ' — ' + pedido.enderecos.referencia : ''}`,
     SEP2,
-    pad('ITEM', ITEM_W) + pad('QTD', QTD_W) + pad('TOTAL', TOTAL_W, true),
+    pad('QTD', QTD_W) + pad('ITEM', ITEM_W) + pad('TOTAL', TOTAL_W, true),
     SEP2,
     ...pedido.itens_pedido.map(item => {
-      const nomeItem = pad(item.nome_snapshot, ITEM_W)
       const qty = pad(String(item.quantidade) + 'x', QTD_W)
+      const nomeItem = pad(item.nome_snapshot, ITEM_W)
       const total = pad(fmtMoeda(item.subtotal), TOTAL_W, true)
-      return nomeItem + qty + total
+      return qty + nomeItem + total
     }),
     SEP2,
     linha('Subtotal:', fmtMoeda(pedido.subtotal)),
