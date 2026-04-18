@@ -47,6 +47,8 @@ function getInitials(nome: string): string {
   return nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
 }
 
+const PAGE_SIZE = 20
+
 export default function ClientesPage() {
   const router = useRouter()
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -58,6 +60,7 @@ export default function ClientesPage() {
   const [clienteForm, setClienteForm] = useState({ nome: '', telefone: '' })
   const [enderecos, setEnderecos] = useState<EnderecoForm[]>([{ ...emptyEndereco }])
   const [saving, setSaving] = useState(false)
+  const [clientePage, setClientePage] = useState(1)
   const [formError, setFormError] = useState('')
   const buscaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -74,6 +77,7 @@ export default function ClientesPage() {
 
   function handleBusca(v: string) {
     setBusca(v)
+    setClientePage(1)
     if (buscaTimer.current) clearTimeout(buscaTimer.current)
     buscaTimer.current = setTimeout(() => fetchClientes(v), 400)
   }
@@ -232,7 +236,7 @@ export default function ClientesPage() {
                 </tr>
               </thead>
               <tbody>
-                {clientes.map(cliente => {
+                {clientes.slice((clientePage - 1) * PAGE_SIZE, clientePage * PAGE_SIZE).map(cliente => {
                   const selected = selecionado?.id === cliente.id
                   return (
                     <tr
@@ -268,6 +272,25 @@ export default function ClientesPage() {
               </tbody>
             </table>
           )}
+          {/* Paginação */}
+          {(() => {
+            const totalPages = Math.ceil(clientes.length / PAGE_SIZE)
+            if (totalPages <= 1) return null
+            return (
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 6, padding: '12px 0', alignItems: 'center', borderTop: '0.5px solid var(--border)' }}>
+                <button className="btn-outline" style={{ padding: '4px 9px' }} disabled={clientePage <= 1} onClick={() => setClientePage(p => p - 1)}>«</button>
+                {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+                  const p = totalPages <= 7 ? i + 1 : clientePage <= 4 ? i + 1 : clientePage + i - 3
+                  if (p < 1 || p > totalPages) return null
+                  return (
+                    <button key={p} onClick={() => setClientePage(p)} style={{ padding: '4px 9px', borderRadius: 8, border: '0.5px solid var(--border)', background: p === clientePage ? '#C0392B' : '#fff', color: p === clientePage ? '#fff' : 'var(--text-primary)', cursor: 'pointer', fontSize: 13 }}>{p}</button>
+                  )
+                })}
+                <button className="btn-outline" style={{ padding: '4px 9px' }} disabled={clientePage >= totalPages} onClick={() => setClientePage(p => p + 1)}>»</button>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{clientes.length} clientes</span>
+              </div>
+            )
+          })()}
         </div>
 
         {/* Painel direito */}
