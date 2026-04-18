@@ -808,8 +808,15 @@ function Etapa4({
       {/* Resumo direita */}
       <div style={{ background: '#FDF3E3', border: '1px solid #F5C070', borderRadius: 12, padding: 16 }}>
         <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Resumo</p>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>{cliente.nome}</p>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>{endereco.logradouro}, {endereco.numero} — {endereco.bairro}</p>
+        <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 1 }}>{cliente.nome}</p>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 1 }}>{formatTelefone(cliente.telefone)}</p>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{endereco.logradouro}, {endereco.numero} — {endereco.bairro}</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>PAGAMENTO</span>
+          <span style={{ fontSize: 12, fontWeight: 700, background: '#fff', border: '1px solid #E8870A', color: '#B8600A', borderRadius: 6, padding: '2px 8px' }}>
+            {pagamentoPills.find(p => p.key === pagamento)?.label ?? pagamento}
+          </span>
+        </div>
         <div style={{ borderTop: '0.5px solid #F5C070', paddingTop: 10 }}>
           {itens.map(p => (
             <div key={p.item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
