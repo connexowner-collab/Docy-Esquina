@@ -57,6 +57,25 @@ function centralizar(texto: string, largura = W): string {
   return ' '.repeat(esp) + texto
 }
 
+function wrapItem(nome: string, qty: string, total: string): string[] {
+  const words = nome.split(' ')
+  const lines: string[] = []
+  let cur = ''
+  for (const word of words) {
+    const w = word.length > ITEM_W ? word.slice(0, ITEM_W) : word
+    const test = cur ? cur + ' ' + w : w
+    if (test.length <= ITEM_W) { cur = test }
+    else { if (cur) lines.push(cur); cur = w }
+  }
+  if (cur) lines.push(cur)
+  const indent = ' '.repeat(QTD_W)
+  return lines.map((line, i) =>
+    i === 0
+      ? pad(qty, QTD_W) + pad(line, ITEM_W) + pad(total, TOTAL_W, true)
+      : indent + pad(line, ITEM_W)
+  )
+}
+
 function buildComandaHTML(pedido: DadosPedido): string {
   const SEP1 = '='.repeat(W)
   const SEP2 = '-'.repeat(W)
@@ -76,12 +95,9 @@ function buildComandaHTML(pedido: DadosPedido): string {
     SEP2,
     pad('QTD', QTD_W) + pad('ITEM', ITEM_W) + pad('TOTAL', TOTAL_W, true),
     SEP2,
-    ...pedido.itens_pedido.map(item => {
-      const qty = pad(String(item.quantidade) + 'x', QTD_W)
-      const nomeItem = pad(item.nome_snapshot, ITEM_W)
-      const total = pad(fmtMoeda(item.subtotal), TOTAL_W, true)
-      return qty + nomeItem + total
-    }),
+    ...pedido.itens_pedido.flatMap(item =>
+      wrapItem(item.nome_snapshot, String(item.quantidade) + 'x', fmtMoeda(item.subtotal))
+    ),
     SEP2,
     linha('Subtotal:', fmtMoeda(pedido.subtotal)),
     linha('Taxa de entrega:', fmtMoeda(pedido.taxa_entrega)),
