@@ -35,7 +35,7 @@ function fmtData(): string {
 
 // ─── Stepper ──────────────────────────────────────────────────────────────────
 function Stepper({ etapa }: { etapa: number }) {
-  const steps = ['Identificar\nCliente', 'Endere\u00e7o de\nEntrega', 'Itens do\nPedido', 'Pagamento']
+  const steps = ['Identificar\nCliente', 'Endereço de\nEntrega', 'Itens do\nPedido', 'Pagamento']
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 0 24px' }}>
       {steps.map((label, i) => {
@@ -129,7 +129,7 @@ function Etapa1({
 
   async function handleCadastrar(e: React.FormEvent) {
     e.preventDefault()
-    if (!cadastroForm.nome || !cadastroForm.telefone) { setErroForm('Nome e telefone obrigat\u00f3rios'); return }
+    if (!cadastroForm.nome || !cadastroForm.telefone) { setErroForm('Nome e telefone obrigatórios'); return }
     setSalvando(true)
     setErroForm('')
     try {
@@ -193,7 +193,7 @@ function Etapa1({
 
       {naoEncontrado && !clienteEncontrado && (
         <div style={{ maxWidth: 420, width: '100%', textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-muted)', marginBottom: 12, fontSize: 13 }}>Cliente n\u00e3o encontrado para este telefone.</p>
+          <p style={{ color: 'var(--text-muted)', marginBottom: 12, fontSize: 13 }}>Cliente não encontrado para este telefone.</p>
           <button className="btn-outline" onClick={() => {
             setCadastroForm({ nome: '', telefone: tel })
             setEnderecos([{ ...emptyEnderecoForm }])
@@ -343,14 +343,14 @@ function Etapa2({
           distancia_km: novoEndForm.distancia_km ? Number(novoEndForm.distancia_km) : null,
         }),
       })
-      if (!res.ok) throw new Error('Erro ao salvar endere\u00e7o')
+      if (!res.ok) throw new Error('Erro ao salvar endereço')
       const novo: Endereco = await res.json()
       setEnderecos(prev => [...prev, novo])
       setNovoEnd(false)
       setNovoEndForm({ ...emptyEnderecoForm })
       selecionarEndereco(novo)
     } catch {
-      alert('Erro ao salvar endere\u00e7o')
+      alert('Erro ao salvar endereço')
     } finally {
       setSalvandoEnd(false)
     }
@@ -371,7 +371,7 @@ function Etapa2({
         </div>
       </div>
 
-      <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--text-muted)' }}>Selecione o endere\u00e7o de entrega:</p>
+      <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--text-muted)' }}>Selecione o endereço de entrega:</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 16 }}>
         {enderecos.map(end => (
@@ -400,7 +400,7 @@ function Etapa2({
           onClick={() => setNovoEnd(true)}
           style={{ border: '1.5px dashed #CCC', borderRadius: 10, padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13 }}
         >
-          + Digitar outro endere\u00e7o
+          + Digitar outro endereço
         </div>
       </div>
 
@@ -411,7 +411,7 @@ function Etapa2({
       {freteInfo && (
         <p style={{ color: '#B8600A', fontWeight: 600, fontSize: 13, marginBottom: 12 }}>
           {freteInfo.distancia_km.toFixed(1)} km &middot; Taxa estimada {fmtMoeda(freteInfo.taxa)}
-          {freteInfo.fora_cobertura && <span style={{ color: '#A32D2D', marginLeft: 8 }}>(fora da \u00e1rea de cobertura)</span>}
+          {freteInfo.fora_cobertura && <span style={{ color: '#A32D2D', marginLeft: 8 }}>(fora da área de cobertura)</span>}
         </p>
       )}
 
@@ -421,19 +421,19 @@ function Etapa2({
           style={{ marginTop: 8 }}
           onClick={() => onEnderecoSelecionado(endSelecionado, freteInfo?.distancia_km ?? 0, freteInfo?.taxa ?? 0)}
         >
-          Confirmar endere\u00e7o &rarr;
+          Confirmar endereço &rarr;
         </button>
       )}
 
       {novoEnd && (
         <div className="modal-overlay" onClick={() => setNovoEnd(false)}>
           <div className="modal-card" style={{ maxWidth: 440 }} onClick={ev => ev.stopPropagation()}>
-            <h3 style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>Novo Endere\u00e7o</h3>
+            <h3 style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>Novo Endereço</h3>
             <form onSubmit={salvarNovoEndereco}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
                   <input className="input" placeholder="Logradouro *" value={novoEndForm.logradouro} onChange={e => setNovoEndForm(p => ({ ...p, logradouro: e.target.value }))} required />
-                  <input className="input" placeholder="N\u00famero *" value={novoEndForm.numero} onChange={e => setNovoEndForm(p => ({ ...p, numero: e.target.value }))} required />
+                  <input className="input" placeholder="Número *" value={novoEndForm.numero} onChange={e => setNovoEndForm(p => ({ ...p, numero: e.target.value }))} required />
                 </div>
                 <input className="input" placeholder="Bairro *" value={novoEndForm.bairro} onChange={e => setNovoEndForm(p => ({ ...p, bairro: e.target.value }))} required />
                 <input className="input" placeholder="Complemento" value={novoEndForm.complemento} onChange={e => setNovoEndForm(p => ({ ...p, complemento: e.target.value }))} />
@@ -531,7 +531,7 @@ function Etapa3({
     onContinuar(pedido, subtotal, total, observacoes, taxaFinal)
   }
 
-  if (loading) return <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Carregando card\u00e1pio...</p>
+  if (loading) return <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Carregando cardápio...</p>
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 20 }}>
@@ -583,7 +583,7 @@ function Etapa3({
 
         {/* Observações */}
         <div>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text-muted)' }}>Observa\u00e7\u00f5es do pedido</label>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text-muted)' }}>Observações do pedido</label>
           <textarea
             className="input"
             style={{ height: 72, resize: 'vertical' }}
@@ -741,8 +741,8 @@ function Etapa4({
   const pagamentoPills: { key: Pagamento; label: string }[] = [
     { key: 'dinheiro', label: 'Dinheiro' },
     { key: 'pix', label: 'Pix' },
-    { key: 'debito', label: 'D\u00e9bito' },
-    { key: 'credito', label: 'Cr\u00e9dito' },
+    { key: 'debito', label: 'Débito' },
+    { key: 'credito', label: 'Crédito' },
   ]
 
   return (

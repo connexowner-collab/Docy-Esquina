@@ -42,19 +42,24 @@ function pad(str: string, len: number, right = false): string {
   return right ? s.padStart(len) : s.padEnd(len)
 }
 
-function linha(esq: string, dir: string, total = 42): string {
+const W = 36
+const ITEM_W = 20
+const QTD_W = 4
+const TOTAL_W = 12 // ITEM_W + QTD_W + TOTAL_W = 36
+
+function linha(esq: string, dir: string, total = W): string {
   const espaco = total - esq.length - dir.length
   return esq + ' '.repeat(Math.max(1, espaco)) + dir
 }
 
-function centralizar(texto: string, largura = 42): string {
+function centralizar(texto: string, largura = W): string {
   const esp = Math.max(0, Math.floor((largura - texto.length) / 2))
   return ' '.repeat(esp) + texto
 }
 
 function buildComandaHTML(pedido: DadosPedido): string {
-  const SEP1 = '='.repeat(42)
-  const SEP2 = '-'.repeat(42)
+  const SEP1 = '='.repeat(W)
+  const SEP2 = '-'.repeat(W)
   const nome = (pedido.nomeEstabelecimento ?? 'DOCY ESQUINA').toUpperCase()
   const tel = pedido.telefoneEstabelecimento ?? ''
 
@@ -69,12 +74,12 @@ function buildComandaHTML(pedido: DadosPedido): string {
     `END: ${pedido.enderecos.logradouro}, ${pedido.enderecos.numero}`,
     `     ${pedido.enderecos.bairro}${pedido.enderecos.referencia ? ' — ' + pedido.enderecos.referencia : ''}`,
     SEP2,
-    pad('ITEM', 24) + pad('QTD', 5) + pad('TOTAL', 13, true),
+    pad('ITEM', ITEM_W) + pad('QTD', QTD_W) + pad('TOTAL', TOTAL_W, true),
     SEP2,
     ...pedido.itens_pedido.map(item => {
-      const nomeItem = pad(item.nome_snapshot, 24)
-      const qty = pad(String(item.quantidade) + 'x', 5)
-      const total = pad(fmtMoeda(item.subtotal), 13, true)
+      const nomeItem = pad(item.nome_snapshot, ITEM_W)
+      const qty = pad(String(item.quantidade) + 'x', QTD_W)
+      const total = pad(fmtMoeda(item.subtotal), TOTAL_W, true)
       return nomeItem + qty + total
     }),
     SEP2,
@@ -104,7 +109,7 @@ function buildComandaHTML(pedido: DadosPedido): string {
   return `<!DOCTYPE html><html><head>
     <style>
       @media print { body { margin: 0; } @page { margin: 3mm; size: 80mm auto; } }
-      body { font-family: 'Courier New', monospace; font-size: 13px; font-weight: bold; line-height: 1.4; padding: 4px; width: 74mm; box-sizing: border-box; }
+      body { font-family: 'Courier New', monospace; font-size: 15px; font-weight: bold; line-height: 1.4; padding: 4px; width: 74mm; box-sizing: border-box; }
       div { white-space: pre; font-weight: bold; }
       .logo-wrap { text-align: center; margin-bottom: 6px; }
       .logo-wrap img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
@@ -114,8 +119,8 @@ function buildComandaHTML(pedido: DadosPedido): string {
 }
 
 function buildResumoHTML(dados: DadosResumo): string {
-  const SEP1 = '='.repeat(42)
-  const SEP2 = '-'.repeat(42)
+  const SEP1 = '='.repeat(W)
+  const SEP2 = '-'.repeat(W)
   const nome = (dados.nomeEstabelecimento ?? 'DOCY ESQUINA').toUpperCase()
   const dataFmt = new Date(dados.data + 'T12:00:00').toLocaleDateString('pt-BR')
   const pagLabels: Record<string, string> = { pix: 'PIX', dinheiro: 'DINHEIRO', debito: 'DEBITO', credito: 'CREDITO' }
@@ -149,7 +154,7 @@ function buildResumoHTML(dados: DadosResumo): string {
   return `<!DOCTYPE html><html><head>
     <style>
       @media print { body { margin: 0; } @page { margin: 3mm; size: 80mm auto; } }
-      body { font-family: 'Courier New', monospace; font-size: 13px; font-weight: bold; line-height: 1.4; padding: 4px; width: 74mm; box-sizing: border-box; }
+      body { font-family: 'Courier New', monospace; font-size: 15px; font-weight: bold; line-height: 1.4; padding: 4px; width: 74mm; box-sizing: border-box; }
       div { white-space: pre; font-weight: bold; }
       .logo-wrap { text-align: center; margin-bottom: 6px; }
       .logo-wrap img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }

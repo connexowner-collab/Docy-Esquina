@@ -50,7 +50,7 @@ const pagamentoBadge: Record<string, string> = {
   credito: 'badge-blue',
 }
 const pagamentoLabel: Record<string, string> = {
-  pix: 'Pix', dinheiro: 'Dinheiro', debito: 'D\u00e9bito', credito: 'Cr\u00e9dito',
+  pix: 'Pix', dinheiro: 'Dinheiro', debito: 'Débito', credito: 'Crédito',
 }
 
 function VariacaoChip({ value }: { value: number | null }) {
@@ -126,13 +126,13 @@ export default function HistoricoPage() {
       'Cliente': p.clientes?.nome ?? '',
       'Telefone': formatTelefone(p.clientes?.telefone ?? ''),
       'Itens': p.itens_pedido?.map(i => `${i.quantidade}x ${i.nome_snapshot}`).join(', ') ?? '',
-      'Endere\u00e7o': p.enderecos ? `${p.enderecos.logradouro}, ${p.enderecos.numero} — ${p.enderecos.bairro}` : '',
+      'Endereço': p.enderecos ? `${p.enderecos.logradouro}, ${p.enderecos.numero} — ${p.enderecos.bairro}` : '',
       'Subtotal': Number(p.subtotal),
       'Taxa Entrega': Number(p.taxa_entrega),
       'Total': Number(p.total),
       'Pagamento': pagamentoLabel[p.pagamento] ?? p.pagamento,
       'Troco': p.troco ? Number(p.troco) : '',
-      'Observa\u00e7\u00f5es': p.observacoes ?? '',
+      'Observações': p.observacoes ?? '',
     }))
     const ws = utils.json_to_sheet(rows)
     const wb = utils.book_new()
@@ -182,7 +182,7 @@ export default function HistoricoPage() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Data in\u00edcio</label>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Data início</label>
             <input type="date" className="input" style={{ width: 150 }} value={filtros.dataInicio} onChange={e => setFiltros(p => ({ ...p, dataInicio: e.target.value }))} />
           </div>
           <div>
@@ -203,8 +203,8 @@ export default function HistoricoPage() {
               <option value="">Todos</option>
               <option value="pix">Pix</option>
               <option value="dinheiro">Dinheiro</option>
-              <option value="debito">D\u00e9bito</option>
-              <option value="credito">Cr\u00e9dito</option>
+              <option value="debito">Débito</option>
+              <option value="credito">Crédito</option>
             </select>
           </div>
           <button className="btn-primary" onClick={handleFiltrar}>Filtrar</button>
@@ -326,11 +326,11 @@ export default function HistoricoPage() {
                 <VariacaoChip value={resumo.variacao.faturamento} />
               </div>
               <div style={{ background: '#F5F5F5', borderRadius: 10, padding: '12px 14px' }}>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>TICKET M\u00c9DIO</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>TICKET MÉDIO</p>
                 <p style={{ fontSize: 18, fontWeight: 700 }}>{fmtMoeda(resumo.ticketMedio)}</p>
               </div>
               <div style={{ background: '#F5F5F5', borderRadius: 10, padding: '12px 14px' }}>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>TAXA M\u00c9DIA</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>TAXA MÉDIA</p>
                 <p style={{ fontSize: 18, fontWeight: 700 }}>{fmtMoeda(resumo.taxaMediaEntrega)}</p>
               </div>
             </div>
