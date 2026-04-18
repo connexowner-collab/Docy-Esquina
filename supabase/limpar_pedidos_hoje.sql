@@ -15,8 +15,8 @@ WHERE pedido_id IN (
 DELETE FROM public.pedidos
 WHERE created_at::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date;
 
--- 3. Reseta o numero_seq para continuar do último pedido restante
+-- 3. Reseta o numero_seq para o último pedido restante (mínimo 1)
 SELECT setval(
   pg_get_serial_sequence('public.pedidos', 'numero_seq'),
-  COALESCE((SELECT MAX(numero_seq) FROM public.pedidos), 0)
+  GREATEST((SELECT MAX(numero_seq) FROM public.pedidos), 1)
 );
