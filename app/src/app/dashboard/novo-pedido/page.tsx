@@ -832,9 +832,12 @@ function Etapa4({
         </div>
         <div style={{ borderTop: '0.5px solid #F5C070', paddingTop: 10 }}>
           {itens.map(p => (
-            <div key={p.item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
-              <span>{p.quantidade}x {p.item.nome}</span>
-              <span>{fmtMoeda(Number(p.item.preco) * p.quantidade)}</span>
+            <div key={p.item.id} style={{ marginBottom: 6, fontSize: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>{p.quantidade}x {p.item.nome}</span>
+                <span>{fmtMoeda(Number(p.item.preco) * p.quantidade)}</span>
+              </div>
+              {p.observacao && <p style={{ margin: '2px 0 0 12px', fontSize: 11, color: '#7A5500', fontStyle: 'italic' }}>› {p.observacao}</p>}
             </div>
           ))}
           <div style={{ borderTop: '0.5px solid #F5C070', marginTop: 8, paddingTop: 8 }}>
