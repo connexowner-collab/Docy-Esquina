@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { imprimirComanda } from '@/lib/print/printService'
 
 type ItemPedido = { id: number; nome_snapshot: string; quantidade: number; preco_snapshot: number; subtotal: number }
 type ClientePedido = { id: number; nome: string; telefone: string }
-type EnderecoPedido = { id: number; logradouro: string; numero: string; bairro: string }
+type EnderecoPedido = { id: number; logradouro: string; numero: string; bairro: string; referencia: string | null }
 type Pedido = {
   id: number
   numero_seq: number
@@ -49,7 +50,7 @@ const pagamentoBadge: Record<string, string> = {
   credito: 'badge-blue',
 }
 const pagamentoLabel: Record<string, string> = {
-  pix: 'Pix', dinheiro: 'Dinheiro', debito: 'D\u00e9bito', credito: 'Cr\u00e9dito',
+  pix: 'Pix', dinheiro: 'Dinheiro', debito: 'Débito', credito: 'Crédito',
 }
 
 function VariacaoChip({ value }: { value: number | null }) {
@@ -125,13 +126,13 @@ export default function HistoricoPage() {
       'Cliente': p.clientes?.nome ?? '',
       'Telefone': formatTelefone(p.clientes?.telefone ?? ''),
       'Itens': p.itens_pedido?.map(i => `${i.quantidade}x ${i.nome_snapshot}`).join(', ') ?? '',
-      'Endere\u00e7o': p.enderecos ? `${p.enderecos.logradouro}, ${p.enderecos.numero} — ${p.enderecos.bairro}` : '',
+      'Endereço': p.enderecos ? `${p.enderecos.logradouro}, ${p.enderecos.numero} — ${p.enderecos.bairro}` : '',
       'Subtotal': Number(p.subtotal),
       'Taxa Entrega': Number(p.taxa_entrega),
       'Total': Number(p.total),
       'Pagamento': pagamentoLabel[p.pagamento] ?? p.pagamento,
       'Troco': p.troco ? Number(p.troco) : '',
-      'Observa\u00e7\u00f5es': p.observacoes ?? '',
+      'Observações': p.observacoes ?? '',
     }))
     const ws = utils.json_to_sheet(rows)
     const wb = utils.book_new()
@@ -143,43 +144,37 @@ export default function HistoricoPage() {
 
   return (
     <div>
-      {/* Topbar */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+      {/* Page header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>Hist\u00f3rico de Pedidos</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>Consulte e exporte todos os pedidos do estabelecimento</p>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#1a1a1a', margin: 0 }}>Histórico de Pedidos</h1>
+          <p style={{ fontSize: 14, color: '#888', margin: '6px 0 0' }}>Consulte e exporte todos os pedidos do estabelecimento</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn-outline" onClick={() => { fetchResumo(); setShowResumo(true) }}>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={() => { fetchResumo(); setShowResumo(true) }} style={{ background: '#fff', color: '#1a1a1a', border: '1.5px solid #e8e8ee', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             Resumo do Dia
           </button>
-          <button className="btn-outline" onClick={exportarExcel}>
+          <button onClick={exportarExcel} style={{ background: '#C0392B', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             Exportar Excel
           </button>
         </div>
       </div>
 
-      {/* Cards métricas */}
+      {/* Metric cards */}
       {resumo && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-          <div className="card" style={{ padding: '14px 16px' }}>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Pedidos hoje</p>
-            <p style={{ fontSize: 22, fontWeight: 700 }}>{resumo.totalPedidos}</p>
-            <VariacaoChip value={resumo.variacao.pedidos} />
-          </div>
-          <div className="card" style={{ padding: '14px 16px' }}>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Faturamento</p>
-            <p style={{ fontSize: 18, fontWeight: 700, color: '#0F6E56' }}>{fmtMoeda(resumo.faturamentoTotal)}</p>
-            <VariacaoChip value={resumo.variacao.faturamento} />
-          </div>
-          <div className="card" style={{ padding: '14px 16px' }}>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Ticket M\u00e9dio</p>
-            <p style={{ fontSize: 18, fontWeight: 700 }}>{fmtMoeda(resumo.ticketMedio)}</p>
-          </div>
-          <div className="card" style={{ padding: '14px 16px' }}>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Taxa M\u00e9dia</p>
-            <p style={{ fontSize: 18, fontWeight: 700 }}>{fmtMoeda(resumo.taxaMediaEntrega)}</p>
-          </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+          {[
+            { label: 'Pedidos hoje', value: String(resumo.totalPedidos), chip: resumo.variacao.pedidos, color: '#1a1a1a' },
+            { label: 'Faturamento', value: fmtMoeda(resumo.faturamentoTotal), chip: resumo.variacao.faturamento, color: '#0F6E56' },
+            { label: 'Ticket Médio', value: fmtMoeda(resumo.ticketMedio), chip: null, color: '#1a1a1a' },
+            { label: 'Taxa Média', value: fmtMoeda(resumo.taxaMediaEntrega), chip: null, color: '#1a1a1a' },
+          ].map(card => (
+            <div key={card.label} style={{ background: '#fff', borderRadius: 14, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 8px' }}>{card.label}</p>
+              <p style={{ fontSize: 22, fontWeight: 800, color: card.color, margin: '0 0 6px' }}>{card.value}</p>
+              <VariacaoChip value={card.chip} />
+            </div>
+          ))}
         </div>
       )}
 
@@ -187,7 +182,7 @@ export default function HistoricoPage() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Data in\u00edcio</label>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Data início</label>
             <input type="date" className="input" style={{ width: 150 }} value={filtros.dataInicio} onChange={e => setFiltros(p => ({ ...p, dataInicio: e.target.value }))} />
           </div>
           <div>
@@ -208,8 +203,8 @@ export default function HistoricoPage() {
               <option value="">Todos</option>
               <option value="pix">Pix</option>
               <option value="dinheiro">Dinheiro</option>
-              <option value="debito">D\u00e9bito</option>
-              <option value="credito">Cr\u00e9dito</option>
+              <option value="debito">Débito</option>
+              <option value="credito">Crédito</option>
             </select>
           </div>
           <button className="btn-primary" onClick={handleFiltrar}>Filtrar</button>
@@ -229,7 +224,7 @@ export default function HistoricoPage() {
               <th style={{ padding: '10px 12px', textAlign: 'right' }}>Entrega</th>
               <th style={{ padding: '10px 12px', textAlign: 'right' }}>Total</th>
               <th style={{ padding: '10px 12px', textAlign: 'center' }}>Pagamento</th>
-              <th style={{ padding: '10px 12px', textAlign: 'center' }}>A\u00e7\u00f5es</th>
+              <th style={{ padding: '10px 12px', textAlign: 'center' }}>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -261,7 +256,24 @@ export default function HistoricoPage() {
                   </span>
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                  <button className="btn-outline" style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => alert(`Pedido #${p.numero_seq}\n${p.clientes?.nome}\nTotal: ${fmtMoeda(Number(p.total))}`)}>
+                  <button
+                    className="btn-outline"
+                    style={{ fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    onClick={() => imprimirComanda({
+                      numero_seq: p.numero_seq,
+                      created_at: p.created_at,
+                      clientes: { nome: p.clientes?.nome ?? '', telefone: p.clientes?.telefone ?? '' },
+                      enderecos: { logradouro: p.enderecos?.logradouro ?? '', numero: p.enderecos?.numero ?? '', bairro: p.enderecos?.bairro ?? '', referencia: p.enderecos?.referencia ?? null },
+                      itens_pedido: (p.itens_pedido ?? []).map(i => ({ nome_snapshot: i.nome_snapshot, quantidade: i.quantidade, preco_snapshot: i.preco_snapshot, subtotal: i.subtotal })),
+                      subtotal: Number(p.subtotal),
+                      taxa_entrega: Number(p.taxa_entrega),
+                      total: Number(p.total),
+                      pagamento: p.pagamento,
+                      troco: p.troco,
+                      observacoes: p.observacoes,
+                    })}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                     Reimprimir
                   </button>
                 </td>
@@ -314,11 +326,11 @@ export default function HistoricoPage() {
                 <VariacaoChip value={resumo.variacao.faturamento} />
               </div>
               <div style={{ background: '#F5F5F5', borderRadius: 10, padding: '12px 14px' }}>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>TICKET M\u00c9DIO</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>TICKET MÉDIO</p>
                 <p style={{ fontSize: 18, fontWeight: 700 }}>{fmtMoeda(resumo.ticketMedio)}</p>
               </div>
               <div style={{ background: '#F5F5F5', borderRadius: 10, padding: '12px 14px' }}>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>TAXA M\u00c9DIA</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>TAXA MÉDIA</p>
                 <p style={{ fontSize: 18, fontWeight: 700 }}>{fmtMoeda(resumo.taxaMediaEntrega)}</p>
               </div>
             </div>

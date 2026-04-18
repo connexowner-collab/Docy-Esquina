@@ -30,7 +30,7 @@ const pagamentoBadge: Record<string, string> = {
   pix: 'badge-green', dinheiro: 'badge-amber', debito: 'badge-blue', credito: 'badge-blue',
 }
 const pagamentoLabel: Record<string, string> = {
-  pix: 'Pix', dinheiro: 'Dinheiro', debito: 'D\u00e9bito', credito: 'Cr\u00e9dito',
+  pix: 'Pix', dinheiro: 'Dinheiro', debito: 'Débito', credito: 'Crédito',
 }
 
 const STORAGE_KEY = 'docy_resumo_suprimido'
@@ -71,8 +71,8 @@ export default function ResumoDiaModal() {
       '==========================================',
       `Total de Pedidos: ${resumo.totalPedidos}`,
       `Faturamento: ${fmtMoeda(resumo.faturamentoTotal)}`,
-      `Ticket M\u00e9dio: ${fmtMoeda(resumo.ticketMedio)}`,
-      `Taxa M\u00e9dia Entrega: ${fmtMoeda(resumo.taxaMediaEntrega)}`,
+      `Ticket Médio: ${fmtMoeda(resumo.ticketMedio)}`,
+      `Taxa Média Entrega: ${fmtMoeda(resumo.taxaMediaEntrega)}`,
       '',
       'Por Forma de Pagamento:',
       ...Object.entries(resumo.porFormaPagamento).map(
@@ -111,11 +111,11 @@ export default function ResumoDiaModal() {
             </p>
           </div>
           <div style={{ background: '#F5F5F5', borderRadius: 10, padding: '12px 14px' }}>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', fontWeight: 600 }}>Ticket M\u00e9dio</p>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', fontWeight: 600 }}>Ticket Médio</p>
             <p style={{ fontSize: 16, fontWeight: 700 }}>{fmtMoeda(resumo.ticketMedio)}</p>
           </div>
           <div style={{ background: '#F5F5F5', borderRadius: 10, padding: '12px 14px' }}>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', fontWeight: 600 }}>Taxa M\u00e9dia</p>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', fontWeight: 600 }}>Taxa Média</p>
             <p style={{ fontSize: 16, fontWeight: 700 }}>{fmtMoeda(resumo.taxaMediaEntrega)}</p>
           </div>
         </div>
@@ -139,7 +139,7 @@ export default function ResumoDiaModal() {
             onChange={e => setNaoExibirHoje(e.target.checked)}
             style={{ width: 15, height: 15 }}
           />
-          N\u00e3o exibir hoje
+          Não exibir hoje
         </label>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

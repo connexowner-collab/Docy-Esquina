@@ -42,19 +42,43 @@ function pad(str: string, len: number, right = false): string {
   return right ? s.padStart(len) : s.padEnd(len)
 }
 
-function linha(esq: string, dir: string, total = 42): string {
+const W = 36
+const ITEM_W = 20
+const QTD_W = 4
+const TOTAL_W = 12 // ITEM_W + QTD_W + TOTAL_W = 36
+
+function linha(esq: string, dir: string, total = W): string {
   const espaco = total - esq.length - dir.length
   return esq + ' '.repeat(Math.max(1, espaco)) + dir
 }
 
-function centralizar(texto: string, largura = 42): string {
+function centralizar(texto: string, largura = W): string {
   const esp = Math.max(0, Math.floor((largura - texto.length) / 2))
   return ' '.repeat(esp) + texto
 }
 
+function wrapItem(nome: string, qty: string, total: string): string[] {
+  const words = nome.split(' ')
+  const lines: string[] = []
+  let cur = ''
+  for (const word of words) {
+    const w = word.length > ITEM_W ? word.slice(0, ITEM_W) : word
+    const test = cur ? cur + ' ' + w : w
+    if (test.length <= ITEM_W) { cur = test }
+    else { if (cur) lines.push(cur); cur = w }
+  }
+  if (cur) lines.push(cur)
+  const indent = ' '.repeat(QTD_W)
+  return lines.map((line, i) =>
+    i === 0
+      ? pad(qty, QTD_W) + pad(line, ITEM_W) + pad(total, TOTAL_W, true)
+      : indent + pad(line, ITEM_W)
+  )
+}
+
 function buildComandaHTML(pedido: DadosPedido): string {
-  const SEP1 = '='.repeat(42)
-  const SEP2 = '-'.repeat(42)
+  const SEP1 = '='.repeat(W)
+  const SEP2 = '-'.repeat(W)
   const nome = (pedido.nomeEstabelecimento ?? 'DOCY ESQUINA').toUpperCase()
   const tel = pedido.telefoneEstabelecimento ?? ''
 
@@ -69,12 +93,11 @@ function buildComandaHTML(pedido: DadosPedido): string {
     `END: ${pedido.enderecos.logradouro}, ${pedido.enderecos.numero}`,
     `     ${pedido.enderecos.bairro}${pedido.enderecos.referencia ? ' — ' + pedido.enderecos.referencia : ''}`,
     SEP2,
-    linha(pad('ITEM', 22), linha(pad('QTD', 5), pad('TOTAL', 9, true))),
+    pad('QTD', QTD_W) + pad('ITEM', ITEM_W) + pad('TOTAL', TOTAL_W, true),
     SEP2,
-    ...pedido.itens_pedido.map(item => {
-      const nomeItem = item.nome_snapshot.slice(0, 22)
-      return linha(pad(nomeItem, 22), linha(pad(String(item.quantidade) + 'x', 5), pad(fmtMoeda(item.subtotal), 9, true)))
-    }),
+    ...pedido.itens_pedido.flatMap(item =>
+      wrapItem(item.nome_snapshot, String(item.quantidade) + 'x', fmtMoeda(item.subtotal))
+    ),
     SEP2,
     linha('Subtotal:', fmtMoeda(pedido.subtotal)),
     linha('Taxa de entrega:', fmtMoeda(pedido.taxa_entrega)),
@@ -97,17 +120,23 @@ function buildComandaHTML(pedido: DadosPedido): string {
     .map(l => `<div>${l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`)
     .join('\n')
 
+  const logoUrl = typeof window !== 'undefined' ? `${window.location.origin}/LOGO.png` : '/LOGO.png'
+
   return `<!DOCTYPE html><html><head>
     <style>
       @media print { body { margin: 0; } @page { margin: 3mm; size: 80mm auto; } }
-      body { font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; padding: 4px; }
-      div { white-space: pre; }
-    </style></head><body>${conteudo}</body></html>`
+      body { font-family: 'Courier New', monospace; font-size: 15px; font-weight: bold; line-height: 1.4; padding: 4px; width: 74mm; box-sizing: border-box; }
+      div { white-space: pre; font-weight: bold; }
+      .logo-wrap { text-align: center; margin-bottom: 6px; }
+      .logo-wrap img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+    </style></head><body>
+    <div class="logo-wrap"><img src="${logoUrl}" alt="Logo" /></div>
+    ${conteudo}</body></html>`
 }
 
 function buildResumoHTML(dados: DadosResumo): string {
-  const SEP1 = '='.repeat(42)
-  const SEP2 = '-'.repeat(42)
+  const SEP1 = '='.repeat(W)
+  const SEP2 = '-'.repeat(W)
   const nome = (dados.nomeEstabelecimento ?? 'DOCY ESQUINA').toUpperCase()
   const dataFmt = new Date(dados.data + 'T12:00:00').toLocaleDateString('pt-BR')
   const pagLabels: Record<string, string> = { pix: 'PIX', dinheiro: 'DINHEIRO', debito: 'DEBITO', credito: 'CREDITO' }
@@ -136,12 +165,18 @@ function buildResumoHTML(dados: DadosResumo): string {
     .map(l => `<div>${l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`)
     .join('\n')
 
+  const logoUrl = typeof window !== 'undefined' ? `${window.location.origin}/LOGO.png` : '/LOGO.png'
+
   return `<!DOCTYPE html><html><head>
     <style>
       @media print { body { margin: 0; } @page { margin: 3mm; size: 80mm auto; } }
-      body { font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; padding: 4px; }
-      div { white-space: pre; }
-    </style></head><body>${conteudo}</body></html>`
+      body { font-family: 'Courier New', monospace; font-size: 15px; font-weight: bold; line-height: 1.4; padding: 4px; width: 74mm; box-sizing: border-box; }
+      div { white-space: pre; font-weight: bold; }
+      .logo-wrap { text-align: center; margin-bottom: 6px; }
+      .logo-wrap img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+    </style></head><body>
+    <div class="logo-wrap"><img src="${logoUrl}" alt="Logo" /></div>
+    ${conteudo}</body></html>`
 }
 
 export function imprimirComanda(pedido: DadosPedido): void {

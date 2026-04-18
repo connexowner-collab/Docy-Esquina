@@ -12,6 +12,7 @@ type Endereco = {
   referencia: string | null
   lat: number | null
   lng: number | null
+  distancia_km: number | null
 }
 
 type Cliente = {
@@ -23,14 +24,16 @@ type Cliente = {
 }
 
 type EnderecoForm = {
+  id?: number
   logradouro: string
   numero: string
   complemento: string
   bairro: string
   referencia: string
+  distancia_km: string
 }
 
-const emptyEndereco: EnderecoForm = { logradouro: '', numero: '', complemento: '', bairro: '', referencia: '' }
+const emptyEndereco: EnderecoForm = { logradouro: '', numero: '', complemento: '', bairro: '', referencia: '', distancia_km: '' }
 
 function formatTelefone(v: string): string {
   const d = v.replace(/\D/g, '').slice(0, 11)
@@ -44,6 +47,8 @@ function getInitials(nome: string): string {
   return nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
 }
 
+const PAGE_SIZE = 20
+
 export default function ClientesPage() {
   const router = useRouter()
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -55,6 +60,7 @@ export default function ClientesPage() {
   const [clienteForm, setClienteForm] = useState({ nome: '', telefone: '' })
   const [enderecos, setEnderecos] = useState<EnderecoForm[]>([{ ...emptyEndereco }])
   const [saving, setSaving] = useState(false)
+  const [clientePage, setClientePage] = useState(1)
   const [formError, setFormError] = useState('')
   const buscaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -71,6 +77,7 @@ export default function ClientesPage() {
 
   function handleBusca(v: string) {
     setBusca(v)
+    setClientePage(1)
     if (buscaTimer.current) clearTimeout(buscaTimer.current)
     buscaTimer.current = setTimeout(() => fetchClientes(v), 400)
   }
@@ -88,11 +95,13 @@ export default function ClientesPage() {
     setClienteForm({ nome: cliente.nome, telefone: formatTelefone(cliente.telefone) })
     setEnderecos(cliente.enderecos.length > 0
       ? cliente.enderecos.map(e => ({
+          id: e.id,
           logradouro: e.logradouro,
           numero: e.numero,
           complemento: e.complemento ?? '',
           bairro: e.bairro,
           referencia: e.referencia ?? '',
+          distancia_km: e.distancia_km != null ? String(e.distancia_km) : '',
         }))
       : [{ ...emptyEndereco }]
     )
@@ -117,9 +126,36 @@ export default function ClientesPage() {
           body: JSON.stringify({ nome: clienteForm.nome, telefone: clienteForm.telefone }),
         })
         if (!res.ok) throw new Error((await res.json()).error || 'Erro ao atualizar')
-        const updated: Cliente = await res.json()
-        setClientes(prev => prev.map(c => c.id === updated.id ? updated : c))
-        setSelecionado(updated)
+
+        // Atualiza endereços existentes e adiciona novos
+        await Promise.all(enderecosFilled.map(en => {
+          const payload = {
+            logradouro: en.logradouro,
+            numero: en.numero,
+            complemento: en.complemento || null,
+            bairro: en.bairro,
+            referencia: en.referencia || null,
+            distancia_km: en.distancia_km ? Number(en.distancia_km) : null,
+          }
+          if (en.id) {
+            return fetch(`/api/clientes/${editando.id}/enderecos/${en.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            })
+          } else {
+            return fetch(`/api/clientes/${editando.id}/enderecos`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            })
+          }
+        }))
+
+        // Recarrega cliente atualizado
+        const refreshed = await fetch(`/api/clientes/${editando.id}`).then(r => r.json())
+        setClientes(prev => prev.map(c => c.id === refreshed.id ? refreshed : c))
+        setSelecionado(refreshed)
       } else {
         const res = await fetch('/api/clientes', {
           method: 'POST',
@@ -160,10 +196,15 @@ export default function ClientesPage() {
 
   return (
     <div>
-      {/* Topbar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>Clientes</h2>
-        <button className="btn-primary" onClick={openNovoCliente}>+ Novo Cliente</button>
+      {/* Page header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#1a1a1a', margin: 0 }}>Clientes</h1>
+          <p style={{ fontSize: 14, color: '#888', margin: '6px 0 0' }}>Gerencie sua base de clientes e endereços</p>
+        </div>
+        <button onClick={openNovoCliente} style={{ background: '#C0392B', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+          + Novo Cliente
+        </button>
       </div>
 
       {/* Grid 2fr 1fr */}
@@ -195,7 +236,7 @@ export default function ClientesPage() {
                 </tr>
               </thead>
               <tbody>
-                {clientes.map(cliente => {
+                {clientes.slice((clientePage - 1) * PAGE_SIZE, clientePage * PAGE_SIZE).map(cliente => {
                   const selected = selecionado?.id === cliente.id
                   return (
                     <tr
@@ -231,6 +272,25 @@ export default function ClientesPage() {
               </tbody>
             </table>
           )}
+          {/* Paginação */}
+          {(() => {
+            const totalPages = Math.ceil(clientes.length / PAGE_SIZE)
+            if (totalPages <= 1) return null
+            return (
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 6, padding: '12px 0', alignItems: 'center', borderTop: '0.5px solid var(--border)' }}>
+                <button className="btn-outline" style={{ padding: '4px 9px' }} disabled={clientePage <= 1} onClick={() => setClientePage(p => p - 1)}>«</button>
+                {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+                  const p = totalPages <= 7 ? i + 1 : clientePage <= 4 ? i + 1 : clientePage + i - 3
+                  if (p < 1 || p > totalPages) return null
+                  return (
+                    <button key={p} onClick={() => setClientePage(p)} style={{ padding: '4px 9px', borderRadius: 8, border: '0.5px solid var(--border)', background: p === clientePage ? '#C0392B' : '#fff', color: p === clientePage ? '#fff' : 'var(--text-primary)', cursor: 'pointer', fontSize: 13 }}>{p}</button>
+                  )
+                })}
+                <button className="btn-outline" style={{ padding: '4px 9px' }} disabled={clientePage >= totalPages} onClick={() => setClientePage(p => p + 1)}>»</button>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{clientes.length} clientes</span>
+              </div>
+            )
+          })()}
         </div>
 
         {/* Painel direito */}
@@ -258,10 +318,10 @@ export default function ClientesPage() {
               </div>
 
               <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10, letterSpacing: 0.5 }}>
-                Endere&#xE7;os
+                Endereços
               </p>
               {!clienteDetalhe.enderecos?.length ? (
-                <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>Nenhum endere&#xE7;o cadastrado.</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>Nenhum endereço cadastrado.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
                   {clienteDetalhe.enderecos.map(end => (
@@ -270,6 +330,9 @@ export default function ClientesPage() {
                       <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                         {end.bairro}{end.referencia ? ` · ${end.referencia}` : ''}
                       </p>
+                      {end.distancia_km ? (
+                        <p style={{ fontSize: 11, color: '#E8870A', fontWeight: 600, marginTop: 2 }}>{end.distancia_km} km da loja</p>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -326,20 +389,19 @@ export default function ClientesPage() {
                   />
                 </div>
 
-                {!editando && (
-                  <div>
+                <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                       <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                        Endere&#xE7;os
+                        Endereços
                       </p>
                       <button type="button" className="btn-outline" style={{ fontSize: 11, padding: '3px 8px' }} onClick={addEndereco}>
-                        + Endere&#xE7;o
+                        + Endereço
                       </button>
                     </div>
                     {enderecos.map((en, idx) => (
                       <div key={idx} style={{ background: '#F9F9F9', borderRadius: 8, padding: 12, marginBottom: 8, border: '0.5px solid var(--border)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>Endere&#xE7;o {idx + 1}</p>
+                          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>Endereço {idx + 1}</p>
                           {idx > 0 && (
                             <button type="button" style={{ background: 'none', border: 'none', color: '#A32D2D', cursor: 'pointer', fontSize: 12 }} onClick={() => removeEndereco(idx)}>
                               Remover
@@ -348,19 +410,31 @@ export default function ClientesPage() {
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
                           <input className="input" placeholder="Logradouro *" value={en.logradouro} onChange={e => updateEndereco(idx, 'logradouro', e.target.value)} />
-                          <input className="input" placeholder="N&#xFA;mero *" value={en.numero} onChange={e => updateEndereco(idx, 'numero', e.target.value)} />
+                          <input className="input" placeholder="Número *" value={en.numero} onChange={e => updateEndereco(idx, 'numero', e.target.value)} />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                           <input className="input" placeholder="Bairro *" value={en.bairro} onChange={e => updateEndereco(idx, 'bairro', e.target.value)} />
                           <input className="input" placeholder="Complemento" value={en.complemento} onChange={e => updateEndereco(idx, 'complemento', e.target.value)} />
                         </div>
                         <div style={{ marginTop: 8 }}>
-                          <input className="input" placeholder="Refer&#xEA;ncia" value={en.referencia} onChange={e => updateEndereco(idx, 'referencia', e.target.value)} />
+                          <input className="input" placeholder="Referência" value={en.referencia} onChange={e => updateEndereco(idx, 'referencia', e.target.value)} />
+                        </div>
+                        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input
+                            className="input"
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            placeholder="Distância em KM (ex: 3.5)"
+                            value={en.distancia_km}
+                            onChange={e => updateEndereco(idx, 'distancia_km', e.target.value)}
+                            style={{ flex: 1 }}
+                          />
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>km da loja</span>
                         </div>
                       </div>
                     ))}
                   </div>
-                )}
 
                 {formError && (
                   <p style={{ color: 'var(--badge-danger-text)', fontSize: 12, background: 'var(--badge-danger-bg)', padding: '8px 12px', borderRadius: 8 }}>
@@ -374,7 +448,7 @@ export default function ClientesPage() {
                   Cancelar
                 </button>
                 <button type="submit" className="btn-primary" disabled={saving}>
-                  {saving ? 'Salvando...' : editando ? 'Salvar Altera&#xE7;&#xF5;es' : 'Cadastrar Cliente'}
+                  {saving ? 'Salvando...' : editando ? 'Salvar Alterações' : 'Cadastrar Cliente'}
                 </button>
               </div>
             </form>

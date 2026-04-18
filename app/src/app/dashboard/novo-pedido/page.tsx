@@ -2,18 +2,19 @@
 
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { imprimirComanda } from '@/lib/print/printService'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Endereco = { id: number; logradouro: string; numero: string; complemento: string | null; bairro: string; referencia: string | null; lat: number | null; lng: number | null }
+type Endereco = { id: number; logradouro: string; numero: string; complemento: string | null; bairro: string; referencia: string | null; lat: number | null; lng: number | null; distancia_km: number | null }
 type Cliente = { id: number; nome: string; telefone: string; enderecos: Endereco[] }
 type Categoria = { id: number; nome: string; ordem: number }
 type ItemCardapio = { id: number; categoria_id: number; nome: string; descricao: string | null; preco: number; ativo: boolean; categorias: Categoria }
 type ItemPedido = { item: ItemCardapio; quantidade: number }
 type Pagamento = 'dinheiro' | 'pix' | 'debito' | 'credito'
-type PedidoCriado = { id: number; numero_seq: number; total: number; pagamento: string; clientes: Cliente; itens_pedido: Array<{ nome_snapshot: string; quantidade: number; preco_snapshot: number }> }
+type PedidoCriado = { id: number; numero_seq: number; total: number; pagamento: string; troco?: number | null; clientes: Cliente; itens_pedido: Array<{ nome_snapshot: string; quantidade: number; preco_snapshot: number }> }
 
-type EnderecoForm = { logradouro: string; numero: string; complemento: string; bairro: string; referencia: string }
-const emptyEnderecoForm: EnderecoForm = { logradouro: '', numero: '', complemento: '', bairro: '', referencia: '' }
+type EnderecoForm = { logradouro: string; numero: string; complemento: string; bairro: string; referencia: string; distancia_km: string }
+const emptyEnderecoForm: EnderecoForm = { logradouro: '', numero: '', complemento: '', bairro: '', referencia: '', distancia_km: '' }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatTelefone(v: string): string {
@@ -34,7 +35,7 @@ function fmtData(): string {
 
 // ─── Stepper ──────────────────────────────────────────────────────────────────
 function Stepper({ etapa }: { etapa: number }) {
-  const steps = ['Identificar\nCliente', 'Endere\u00e7o de\nEntrega', 'Itens do\nPedido', 'Pagamento']
+  const steps = ['Identificar\nCliente', 'Endereço de\nEntrega', 'Itens do\nPedido', 'Pagamento']
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 0 24px' }}>
       {steps.map((label, i) => {
@@ -128,7 +129,7 @@ function Etapa1({
 
   async function handleCadastrar(e: React.FormEvent) {
     e.preventDefault()
-    if (!cadastroForm.nome || !cadastroForm.telefone) { setErroForm('Nome e telefone obrigat\u00f3rios'); return }
+    if (!cadastroForm.nome || !cadastroForm.telefone) { setErroForm('Nome e telefone obrigatórios'); return }
     setSalvando(true)
     setErroForm('')
     try {
@@ -192,7 +193,7 @@ function Etapa1({
 
       {naoEncontrado && !clienteEncontrado && (
         <div style={{ maxWidth: 420, width: '100%', textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-muted)', marginBottom: 12, fontSize: 13 }}>Cliente n\u00e3o encontrado para este telefone.</p>
+          <p style={{ color: 'var(--text-muted)', marginBottom: 12, fontSize: 13 }}>Cliente não encontrado para este telefone.</p>
           <button className="btn-outline" onClick={() => {
             setCadastroForm({ nome: '', telefone: tel })
             setEnderecos([{ ...emptyEnderecoForm }])
@@ -205,30 +206,67 @@ function Etapa1({
 
       {modalCadastro && (
         <div className="modal-overlay" onClick={() => setModalCadastro(false)}>
-          <div className="modal-card" style={{ maxWidth: 480 }} onClick={ev => ev.stopPropagation()}>
-            <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 18 }}>Novo Cliente</h3>
+          <div className="modal-card" style={{ maxWidth: 520 }} onClick={ev => ev.stopPropagation()}>
+            <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>Novo Cliente</h3>
             <form onSubmit={handleCadastrar}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <input className="input" placeholder="Nome *" value={cadastroForm.nome} onChange={e => setCadastroForm(p => ({ ...p, nome: e.target.value }))} required />
-                <input className="input" placeholder="Telefone *" value={cadastroForm.telefone} onChange={e => setCadastroForm(p => ({ ...p, telefone: formatTelefone(e.target.value) }))} required />
-                <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Endere\u00e7o de Entrega</p>
-                {enderecos.map((en, idx) => (
-                  <div key={idx} style={{ background: '#F5F5F5', borderRadius: 8, padding: 10, border: '0.5px solid var(--border)' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
-                      <input className="input" placeholder="Logradouro" value={en.logradouro} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, logradouro: e.target.value } : x))} />
-                      <input className="input" placeholder="N\u00famero" value={en.numero} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, numero: e.target.value } : x))} />
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <input className="input" placeholder="Bairro" value={en.bairro} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, bairro: e.target.value } : x))} />
-                      <input className="input" placeholder="Refer\u00eancia" value={en.referencia} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, referencia: e.target.value } : x))} />
-                    </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text-muted)' }}>Nome *</label>
+                  <input className="input" placeholder="Nome completo" value={cadastroForm.nome} onChange={e => setCadastroForm(p => ({ ...p, nome: e.target.value }))} required />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text-muted)' }}>Telefone *</label>
+                  <input className="input" placeholder="(XX) XXXXX-XXXX" value={cadastroForm.telefone} onChange={e => setCadastroForm(p => ({ ...p, telefone: formatTelefone(e.target.value) }))} required />
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Endereços</p>
+                    <button type="button" className="btn-outline" style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => setEnderecos(prev => [...prev, { ...emptyEnderecoForm }])}>
+                      + Endereço
+                    </button>
                   </div>
-                ))}
+                  {enderecos.map((en, idx) => (
+                    <div key={idx} style={{ background: '#F9F9F9', borderRadius: 8, padding: 12, marginBottom: 8, border: '0.5px solid var(--border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>Endereço {idx + 1}</p>
+                        {idx > 0 && (
+                          <button type="button" style={{ background: 'none', border: 'none', color: '#A32D2D', cursor: 'pointer', fontSize: 12 }} onClick={() => setEnderecos(prev => prev.filter((_, i) => i !== idx))}>
+                            Remover
+                          </button>
+                        )}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
+                        <input className="input" placeholder="Logradouro *" value={en.logradouro} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, logradouro: e.target.value } : x))} />
+                        <input className="input" placeholder="Número *" value={en.numero} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, numero: e.target.value } : x))} />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                        <input className="input" placeholder="Bairro *" value={en.bairro} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, bairro: e.target.value } : x))} />
+                        <input className="input" placeholder="Complemento" value={en.complemento} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, complemento: e.target.value } : x))} />
+                      </div>
+                      <input className="input" placeholder="Referência" value={en.referencia} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, referencia: e.target.value } : x))} />
+                      <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          className="input"
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          placeholder="Distância em KM (ex: 3.5)"
+                          value={en.distancia_km}
+                          onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, distancia_km: e.target.value } : x))}
+                          style={{ flex: 1 }}
+                        />
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>km da loja</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
                 {erroForm && <p style={{ color: 'var(--badge-danger-text)', fontSize: 12, background: 'var(--badge-danger-bg)', padding: '8px 12px', borderRadius: 8 }}>{erroForm}</p>}
               </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
                 <button type="button" className="btn-outline" onClick={() => setModalCadastro(false)}>Cancelar</button>
-                <button type="submit" className="btn-primary" disabled={salvando}>{salvando ? 'Salvando...' : 'Cadastrar'}</button>
+                <button type="submit" className="btn-primary" disabled={salvando}>{salvando ? 'Salvando...' : 'Cadastrar Cliente'}</button>
               </div>
             </form>
           </div>
@@ -256,18 +294,26 @@ function Etapa2({
   const [enderecos, setEnderecos] = useState<Endereco[]>(cliente.enderecos)
 
   async function calcularFrete(end: Endereco) {
-    if (!end.lat || !end.lng) {
-      setFreteInfo(null)
-      setErroFrete('Endere\u00e7o sem coordenadas — frete n\u00e3o calculado')
-      return
-    }
     setCalculando(true)
     setErroFrete('')
     try {
+      // Usa KM manual salvo no endereço se disponível; senão tenta coordenadas
+      const body = end.distancia_km && end.distancia_km > 0
+        ? { km_manual: end.distancia_km }
+        : end.lat && end.lng
+          ? { lat_destino: end.lat, lng_destino: end.lng }
+          : null
+
+      if (!body) {
+        setFreteInfo(null)
+        setErroFrete('Informe a distância em KM para calcular o frete.')
+        return
+      }
+
       const res = await fetch('/api/frete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat_destino: end.lat, lng_destino: end.lng }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro ao calcular frete')
@@ -292,16 +338,19 @@ function Etapa2({
       const res = await fetch(`/api/clientes/${cliente.id}/enderecos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(novoEndForm),
+        body: JSON.stringify({
+          ...novoEndForm,
+          distancia_km: novoEndForm.distancia_km ? Number(novoEndForm.distancia_km) : null,
+        }),
       })
-      if (!res.ok) throw new Error('Erro ao salvar endere\u00e7o')
+      if (!res.ok) throw new Error('Erro ao salvar endereço')
       const novo: Endereco = await res.json()
       setEnderecos(prev => [...prev, novo])
       setNovoEnd(false)
       setNovoEndForm({ ...emptyEnderecoForm })
       selecionarEndereco(novo)
     } catch {
-      alert('Erro ao salvar endere\u00e7o')
+      alert('Erro ao salvar endereço')
     } finally {
       setSalvandoEnd(false)
     }
@@ -322,7 +371,7 @@ function Etapa2({
         </div>
       </div>
 
-      <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--text-muted)' }}>Selecione o endere\u00e7o de entrega:</p>
+      <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--text-muted)' }}>Selecione o endereço de entrega:</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 16 }}>
         {enderecos.map(end => (
@@ -336,7 +385,14 @@ function Etapa2({
             }}
           >
             <p style={{ fontWeight: 600, fontSize: 13 }}>{end.logradouro}, {end.numero}</p>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{end.bairro}{end.referencia ? ` · ${end.referencia}` : ''}</p>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>
+              {end.bairro}{end.referencia ? ` · ${end.referencia}` : ''}
+            </p>
+            {end.distancia_km ? (
+              <p style={{ fontSize: 11, color: '#E8870A', fontWeight: 600, marginTop: 2 }}>{end.distancia_km} km da loja</p>
+            ) : (
+              <p style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>KM não informado</p>
+            )}
           </div>
         ))}
 
@@ -344,7 +400,7 @@ function Etapa2({
           onClick={() => setNovoEnd(true)}
           style={{ border: '1.5px dashed #CCC', borderRadius: 10, padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13 }}
         >
-          + Digitar outro endere\u00e7o
+          + Digitar outro endereço
         </div>
       </div>
 
@@ -355,7 +411,7 @@ function Etapa2({
       {freteInfo && (
         <p style={{ color: '#B8600A', fontWeight: 600, fontSize: 13, marginBottom: 12 }}>
           {freteInfo.distancia_km.toFixed(1)} km &middot; Taxa estimada {fmtMoeda(freteInfo.taxa)}
-          {freteInfo.fora_cobertura && <span style={{ color: '#A32D2D', marginLeft: 8 }}>(fora da \u00e1rea de cobertura)</span>}
+          {freteInfo.fora_cobertura && <span style={{ color: '#A32D2D', marginLeft: 8 }}>(fora da área de cobertura)</span>}
         </p>
       )}
 
@@ -365,23 +421,36 @@ function Etapa2({
           style={{ marginTop: 8 }}
           onClick={() => onEnderecoSelecionado(endSelecionado, freteInfo?.distancia_km ?? 0, freteInfo?.taxa ?? 0)}
         >
-          Confirmar endere\u00e7o &rarr;
+          Confirmar endereço &rarr;
         </button>
       )}
 
       {novoEnd && (
         <div className="modal-overlay" onClick={() => setNovoEnd(false)}>
           <div className="modal-card" style={{ maxWidth: 440 }} onClick={ev => ev.stopPropagation()}>
-            <h3 style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>Novo Endere\u00e7o</h3>
+            <h3 style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>Novo Endereço</h3>
             <form onSubmit={salvarNovoEndereco}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
                   <input className="input" placeholder="Logradouro *" value={novoEndForm.logradouro} onChange={e => setNovoEndForm(p => ({ ...p, logradouro: e.target.value }))} required />
-                  <input className="input" placeholder="N\u00famero *" value={novoEndForm.numero} onChange={e => setNovoEndForm(p => ({ ...p, numero: e.target.value }))} required />
+                  <input className="input" placeholder="Número *" value={novoEndForm.numero} onChange={e => setNovoEndForm(p => ({ ...p, numero: e.target.value }))} required />
                 </div>
                 <input className="input" placeholder="Bairro *" value={novoEndForm.bairro} onChange={e => setNovoEndForm(p => ({ ...p, bairro: e.target.value }))} required />
                 <input className="input" placeholder="Complemento" value={novoEndForm.complemento} onChange={e => setNovoEndForm(p => ({ ...p, complemento: e.target.value }))} />
-                <input className="input" placeholder="Refer\u00eancia" value={novoEndForm.referencia} onChange={e => setNovoEndForm(p => ({ ...p, referencia: e.target.value }))} />
+                <input className="input" placeholder="Referência" value={novoEndForm.referencia} onChange={e => setNovoEndForm(p => ({ ...p, referencia: e.target.value }))} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    className="input"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="Distância em KM (ex: 3.5)"
+                    value={novoEndForm.distancia_km}
+                    onChange={e => setNovoEndForm(p => ({ ...p, distancia_km: e.target.value }))}
+                    style={{ flex: 1 }}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>km da loja</span>
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
                 <button type="button" className="btn-outline" onClick={() => setNovoEnd(false)}>Cancelar</button>
@@ -462,7 +531,7 @@ function Etapa3({
     onContinuar(pedido, subtotal, total, observacoes, taxaFinal)
   }
 
-  if (loading) return <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Carregando card\u00e1pio...</p>
+  if (loading) return <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Carregando cardápio...</p>
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 20 }}>
@@ -514,7 +583,7 @@ function Etapa3({
 
         {/* Observações */}
         <div>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text-muted)' }}>Observa\u00e7\u00f5es do pedido</label>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text-muted)' }}>Observações do pedido</label>
           <textarea
             className="input"
             style={{ height: 72, resize: 'vertical' }}
@@ -672,8 +741,8 @@ function Etapa4({
   const pagamentoPills: { key: Pagamento; label: string }[] = [
     { key: 'dinheiro', label: 'Dinheiro' },
     { key: 'pix', label: 'Pix' },
-    { key: 'debito', label: 'D\u00e9bito' },
-    { key: 'credito', label: 'Cr\u00e9dito' },
+    { key: 'debito', label: 'Débito' },
+    { key: 'credito', label: 'Crédito' },
   ]
 
   return (
@@ -739,8 +808,15 @@ function Etapa4({
       {/* Resumo direita */}
       <div style={{ background: '#FDF3E3', border: '1px solid #F5C070', borderRadius: 12, padding: 16 }}>
         <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Resumo</p>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>{cliente.nome}</p>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>{endereco.logradouro}, {endereco.numero} — {endereco.bairro}</p>
+        <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 1 }}>{cliente.nome}</p>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 1 }}>{formatTelefone(cliente.telefone)}</p>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{endereco.logradouro}, {endereco.numero} — {endereco.bairro}</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>PAGAMENTO</span>
+          <span style={{ fontSize: 12, fontWeight: 700, background: '#fff', border: '1px solid #E8870A', color: '#B8600A', borderRadius: 6, padding: '2px 8px' }}>
+            {pagamentoPills.find(p => p.key === pagamento)?.label ?? pagamento}
+          </span>
+        </div>
         <div style={{ borderTop: '0.5px solid #F5C070', paddingTop: 10 }}>
           {itens.map(p => (
             <div key={p.item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
@@ -755,9 +831,19 @@ function Etapa4({
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
               <span>Taxa entrega</span><span>{fmtMoeda(taxaEntrega)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700, marginBottom: troco > 0 ? 3 : 0 }}>
               <span>Total</span><span style={{ color: '#C0392B' }}>{fmtMoeda(total)}</span>
             </div>
+            {troco > 0 && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3, color: 'var(--text-muted)' }}>
+                  <span>Recebido</span><span>{fmtMoeda(total + troco)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: '#0F6E56' }}>
+                  <span>Troco</span><span>{fmtMoeda(troco)}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -766,7 +852,38 @@ function Etapa4({
 }
 
 // ─── Confirmação ──────────────────────────────────────────────────────────────
-function TelaConfirmacao({ pedido, onNovoPedido }: { pedido: PedidoCriado; onNovoPedido: () => void }) {
+function TelaConfirmacao({
+  pedido, subtotal, taxaEntrega, endereco, observacoes, onNovoPedido,
+}: {
+  pedido: PedidoCriado
+  subtotal: number
+  taxaEntrega: number
+  endereco: Endereco | null
+  observacoes: string
+  onNovoPedido: () => void
+}) {
+  function handleImprimir() {
+    if (!endereco) return
+    imprimirComanda({
+      numero_seq: pedido.numero_seq,
+      created_at: new Date().toISOString(),
+      clientes: { nome: pedido.clientes.nome, telefone: pedido.clientes.telefone },
+      enderecos: { logradouro: endereco.logradouro, numero: endereco.numero, bairro: endereco.bairro, referencia: endereco.referencia },
+      itens_pedido: pedido.itens_pedido.map(it => ({
+        nome_snapshot: it.nome_snapshot,
+        quantidade: it.quantidade,
+        preco_snapshot: it.preco_snapshot,
+        subtotal: it.preco_snapshot * it.quantidade,
+      })),
+      subtotal,
+      taxa_entrega: taxaEntrega,
+      total: Number(pedido.total),
+      pagamento: pedido.pagamento,
+      troco: pedido.troco ?? null,
+      observacoes: observacoes || null,
+    })
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, padding: '40px 0' }}>
       <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#C0392B', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700 }}>
@@ -782,9 +899,19 @@ function TelaConfirmacao({ pedido, onNovoPedido }: { pedido: PedidoCriado; onNov
           <span>Total</span><span style={{ color: '#C0392B' }}>{fmtMoeda(Number(pedido.total))}</span>
         </div>
       </div>
-      <button className="btn-primary" onClick={onNovoPedido}>
-        + Novo Pedido
-      </button>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button
+          className="btn-outline"
+          onClick={handleImprimir}
+          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Imprimir Comanda
+        </button>
+        <button className="btn-primary" onClick={onNovoPedido}>
+          + Novo Pedido
+        </button>
+      </div>
     </div>
   )
 }
@@ -826,7 +953,14 @@ function NovoPedidoContent() {
       {!pedidoConfirmado && <Stepper etapa={etapa} />}
 
       {pedidoConfirmado ? (
-        <TelaConfirmacao pedido={pedidoConfirmado} onNovoPedido={resetar} />
+        <TelaConfirmacao
+          pedido={pedidoConfirmado}
+          subtotal={subtotal}
+          taxaEntrega={taxaEntrega}
+          endereco={endereco}
+          observacoes={observacoes}
+          onNovoPedido={resetar}
+        />
       ) : etapa === 1 ? (
         <Etapa1
           initialClienteId={initialClienteId}

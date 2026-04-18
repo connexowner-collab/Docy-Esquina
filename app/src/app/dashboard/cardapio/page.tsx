@@ -20,10 +20,13 @@ type ModalItemState = {
 
 const emptyItem = { categoria_id: 0, nome: '', descricao: '', preco: '' }
 
+const CARD_PAGE_SIZE = 15
+
 export default function CardapioPage() {
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [itens, setItens] = useState<ItemCardapio[]>([])
   const [filtroCategoria, setFiltroCategoria] = useState<number | null>(null)
+  const [cardPage, setCardPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [modalItem, setModalItem] = useState<ModalItemState>({ open: false, editing: null })
   const [modalCategoria, setModalCategoria] = useState(false)
@@ -53,9 +56,12 @@ export default function CardapioPage() {
     ? itens.filter(i => i.categoria_id === filtroCategoria)
     : itens
 
+  const totalCardPages = Math.ceil(itensFiltrados.length / CARD_PAGE_SIZE)
+  const itensPaginados = itensFiltrados.slice((cardPage - 1) * CARD_PAGE_SIZE, cardPage * CARD_PAGE_SIZE)
+
   const itensPorCategoria = categorias.map(cat => ({
     categoria: cat,
-    itens: itensFiltrados.filter(i => i.categoria_id === cat.id),
+    itens: itensPaginados.filter(i => i.categoria_id === cat.id),
   })).filter(g => g.itens.length > 0)
 
   function openNovoItem() {
@@ -156,14 +162,17 @@ export default function CardapioPage() {
 
   return (
     <div>
-      {/* Topbar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>Cardápio</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn-outline" onClick={() => { setCatForm(''); setModalCategoria(true) }}>
+      {/* Page header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#1a1a1a', margin: 0 }}>Cardápio</h1>
+          <p style={{ fontSize: 14, color: '#888', margin: '6px 0 0' }}>Gerencie itens e categorias do seu cardápio</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={() => { setCatForm(''); setModalCategoria(true) }} style={{ background: '#fff', color: '#1a1a1a', border: '1.5px solid #e8e8ee', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             + Categoria
           </button>
-          <button className="btn-primary" onClick={openNovoItem} disabled={categorias.length === 0}>
+          <button onClick={openNovoItem} disabled={categorias.length === 0} style={{ background: '#C0392B', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: categorias.length === 0 ? 'not-allowed' : 'pointer', opacity: categorias.length === 0 ? 0.5 : 1 }}>
             + Novo Item
           </button>
         </div>
@@ -173,7 +182,7 @@ export default function CardapioPage() {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
         <button
           className={filtroCategoria === null ? 'chip-active' : 'chip-inactive'}
-          onClick={() => setFiltroCategoria(null)}
+          onClick={() => { setFiltroCategoria(null); setCardPage(1) }}
         >
           Todos ({itens.length})
         </button>
@@ -181,7 +190,7 @@ export default function CardapioPage() {
           <button
             key={cat.id}
             className={filtroCategoria === cat.id ? 'chip-active' : 'chip-inactive'}
-            onClick={() => setFiltroCategoria(cat.id)}
+            onClick={() => { setFiltroCategoria(cat.id); setCardPage(1) }}
           >
             {cat.nome} ({itens.filter(i => i.categoria_id === cat.id).length})
           </button>
@@ -252,6 +261,22 @@ export default function CardapioPage() {
             </div>
           </div>
         ))
+      )}
+
+      {/* Paginação */}
+      {totalCardPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 8, alignItems: 'center' }}>
+          <button className="btn-outline" style={{ padding: '5px 10px' }} disabled={cardPage <= 1} onClick={() => setCardPage(p => p - 1)}>«</button>
+          {Array.from({ length: Math.min(7, totalCardPages) }, (_, i) => {
+            const p = totalCardPages <= 7 ? i + 1 : cardPage <= 4 ? i + 1 : cardPage + i - 3
+            if (p < 1 || p > totalCardPages) return null
+            return (
+              <button key={p} onClick={() => setCardPage(p)} style={{ padding: '5px 10px', borderRadius: 8, border: '0.5px solid var(--border)', background: p === cardPage ? '#C0392B' : '#fff', color: p === cardPage ? '#fff' : 'var(--text-primary)', cursor: 'pointer', fontSize: 13 }}>{p}</button>
+            )
+          })}
+          <button className="btn-outline" style={{ padding: '5px 10px' }} disabled={cardPage >= totalCardPages} onClick={() => setCardPage(p => p + 1)}>»</button>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{itensFiltrados.length} itens</span>
+        </div>
       )}
 
       {/* Modal Novo/Editar Item */}

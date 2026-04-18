@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import ResumoDiaModal from '@/components/ResumoDiaModal'
+import TopBar from '@/components/TopBar'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -15,11 +16,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .single()
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#f4f5f7' }}>
       <Sidebar nomeEstabelecimento={config?.nome_estabelecimento ?? 'Docy Esquina'} />
-      <main className="flex-1 p-8 overflow-auto">
-        {children}
-      </main>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <TopBar userEmail={user.email ?? ''} />
+        <main style={{ flex: 1, padding: '32px 36px', overflowAuto: 'auto' } as React.CSSProperties}>
+          {children}
+        </main>
+      </div>
       <ResumoDiaModal />
     </div>
   )

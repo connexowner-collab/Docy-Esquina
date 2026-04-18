@@ -5,7 +5,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const supabase = await createClient()
   const { id } = await params
   const body = await request.json()
-  const { logradouro, numero, complemento, bairro, referencia, lat, lng } = body
+  const { logradouro, numero, complemento, bairro, referencia, lat, lng, distancia_km } = body
 
   if (!logradouro || !numero || !bairro) {
     return NextResponse.json({ error: 'logradouro, numero e bairro são obrigatórios' }, { status: 400 })
@@ -22,6 +22,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       referencia: referencia ?? null,
       lat: lat ?? null,
       lng: lng ?? null,
+      distancia_km: distancia_km ? Number(distancia_km) : null,
     })
     .select()
     .single()
