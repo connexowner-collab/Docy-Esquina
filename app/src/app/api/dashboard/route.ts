@@ -12,6 +12,8 @@ function endOfMonth(d: string) {
   const last = new Date(y, m, 0).getDate()
   return `${d.slice(0, 7)}-${String(last).padStart(2, '0')}T23:59:59.999Z`
 }
+function startOfYear(d: string) { return `${d.slice(0, 4)}-01-01T00:00:00.000Z` }
+function endOfYear(d: string)   { return `${d.slice(0, 4)}-12-31T23:59:59.999Z` }
 
 function buildPagamento() {
   return { pix: { quantidade: 0, total: 0 }, dinheiro: { quantidade: 0, total: 0 }, debito: { quantidade: 0, total: 0 }, credito: { quantidade: 0, total: 0 } }
@@ -33,11 +35,13 @@ export async function GET() {
   const supabase = await createClient()
   const hoje = todayBrasilia()
 
-  const [{ data: rawHoje }, { data: rawMes }, { data: rawItens }] = await Promise.all([
+  const [{ data: rawHoje }, { data: rawMes }, { data: rawAno }, { data: rawItens }] = await Promise.all([
     supabase.from('pedidos').select('total, taxa_entrega, pagamento')
       .gte('created_at', startOfDay(hoje)).lte('created_at', endOfDay(hoje)),
     supabase.from('pedidos').select('total, taxa_entrega, pagamento')
       .gte('created_at', startOfMonth(hoje)).lte('created_at', endOfMonth(hoje)),
+    supabase.from('pedidos').select('total, taxa_entrega, pagamento')
+      .gte('created_at', startOfYear(hoje)).lte('created_at', endOfYear(hoje)),
     supabase.from('pedidos')
       .select('itens_pedido(quantidade, subtotal, itens_cardapio(categorias(nome)))')
       .gte('created_at', startOfDay(hoje)).lte('created_at', endOfDay(hoje)),
@@ -45,6 +49,7 @@ export async function GET() {
 
   const h = processPedidos(rawHoje ?? [])
   const m = processPedidos(rawMes ?? [])
+  const a = processPedidos(rawAno ?? [])
 
   // Agrupa por categoria
   const catMap: Record<string, { quantidade: number; valor: number }> = {}
@@ -74,6 +79,13 @@ export async function GET() {
       faturamento: round2(m.faturamento),
       taxaTotal:   round2(m.taxa),
       porPagamento: m.pag,
+    },
+    ano: {
+      pedidos:     a.count,
+      faturamento: round2(a.faturamento),
+      taxaTotal:   round2(a.taxa),
+      ticketMedio: a.count > 0 ? round2(a.faturamento / a.count) : 0,
+      porPagamento: a.pag,
     },
     porCategoria,
   })

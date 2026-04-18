@@ -16,8 +16,15 @@ type KpiMes = {
   taxaTotal: number
   porPagamento: Record<string, PorPagamento>
 }
+type KpiAno = {
+  pedidos: number
+  faturamento: number
+  taxaTotal: number
+  ticketMedio: number
+  porPagamento: Record<string, PorPagamento>
+}
 type Categoria = { categoria: string; quantidade: number; valor: number }
-type DashboardData = { hoje: KpiHoje; mes: KpiMes; porCategoria: Categoria[] }
+type DashboardData = { hoje: KpiHoje; mes: KpiMes; ano: KpiAno; porCategoria: Categoria[] }
 
 function fmtMoeda(v: number) {
   return `R$ ${Number(v).toFixed(2).replace('.', ',')}`
@@ -143,8 +150,24 @@ export default function DashboardPage() {
           </div>
 
           <SectionTitle>Pagamento Mês</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 32 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {Object.entries(data.mes.porPagamento).map(([k, v]) => (
+              <PagCard key={k} label={PAG_LABELS[k] ?? k} data={v} color={PAG_COLORS[k] ?? '#999'} />
+            ))}
+          </div>
+
+          {/* ── ANO ── */}
+          <SectionTitle>Este Ano ({new Date().getFullYear()})</SectionTitle>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+            <KpiCard label="Pedidos Ano" value={String(data.ano.pedidos)} accent="#C0392B" />
+            <KpiCard label="Faturamento Ano" value={fmtMoeda(data.ano.faturamento)} color="#0F6E56" accent="#0F6E56" />
+            <KpiCard label="Taxa Total Ano" value={fmtMoeda(data.ano.taxaTotal)} accent="#E8870A" />
+            <KpiCard label="Ticket Médio Ano" value={fmtMoeda(data.ano.ticketMedio)} sub="por pedido" accent="#2563EB" />
+          </div>
+
+          <SectionTitle>Pagamento Ano</SectionTitle>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 32 }}>
+            {Object.entries(data.ano.porPagamento).map(([k, v]) => (
               <PagCard key={k} label={PAG_LABELS[k] ?? k} data={v} color={PAG_COLORS[k] ?? '#999'} />
             ))}
           </div>
