@@ -356,6 +356,8 @@ export default function ConfiguracoesPage() {
           </div>
         </div>
       </form>
+
+      <PrintConfig />
     </div>
   )
 }
