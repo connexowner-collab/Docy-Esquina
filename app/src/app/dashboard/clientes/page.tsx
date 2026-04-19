@@ -69,6 +69,24 @@ export default function ClientesPage() {
   const [saving, setSaving] = useState(false)
   const [clientePage, setClientePage] = useState(1)
   const [formError, setFormError] = useState('')
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
+  const [excluindo, setExcluindo] = useState(false)
+
+  async function handleExcluirCliente() {
+    if (!selecionado) return
+    setExcluindo(true)
+    try {
+      const res = await fetch(`/api/clientes/${selecionado.id}`, { method: 'DELETE' })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Erro ao excluir') }
+      setClientes(prev => prev.filter(c => c.id !== selecionado.id))
+      setSelecionado(null)
+      setConfirmandoExclusao(false)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erro ao excluir cliente')
+    } finally {
+      setExcluindo(false)
+    }
+  }
   const [buscandoCep, setBuscandoCep] = useState<number | null>(null)
   const [cepErro, setCepErro] = useState<Record<number, string>>({})
 
@@ -457,22 +475,60 @@ export default function ClientesPage() {
                 </div>
               )}
 
-              <div style={{ marginTop: 'auto', display: 'flex', gap: 8 }}>
-                <button className="btn-outline" style={{ flex: 1 }} onClick={() => openEditarCliente(clienteDetalhe)}>
-                  Editar
-                </button>
+              <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn-outline" style={{ flex: 1 }} onClick={() => openEditarCliente(clienteDetalhe)}>
+                    Editar
+                  </button>
+                  <button
+                    className="btn-primary"
+                    style={{ flex: 1 }}
+                    onClick={() => router.push(`/dashboard/novo-pedido?clienteId=${clienteDetalhe.id}`)}
+                  >
+                    Novo Pedido
+                  </button>
+                </div>
                 <button
-                  className="btn-primary"
-                  style={{ flex: 1 }}
-                  onClick={() => router.push(`/dashboard/novo-pedido?clienteId=${clienteDetalhe.id}`)}
+                  onClick={() => setConfirmandoExclusao(true)}
+                  style={{ width: '100%', background: 'none', border: '1px solid #A32D2D', borderRadius: 8, padding: '8px 0', fontSize: 13, fontWeight: 600, color: '#A32D2D', cursor: 'pointer' }}
                 >
-                  Novo Pedido
+                  Excluir Cliente
                 </button>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Modal Confirmação Exclusão */}
+      {confirmandoExclusao && selecionado && (
+        <div className="modal-overlay" onClick={() => setConfirmandoExclusao(false)}>
+          <div className="modal-card" style={{ maxWidth: 400, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A32D2D" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            </div>
+            <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Excluir cliente?</h3>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 4 }}>
+              Você está prestes a excluir <strong>{selecionado.nome}</strong>.
+            </p>
+            <p style={{ fontSize: 12, color: '#A32D2D', marginBottom: 24 }}>
+              Esta ação não pode ser desfeita.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button className="btn-outline" style={{ minWidth: 100 }} onClick={() => setConfirmandoExclusao(false)}>
+                Cancelar
+              </button>
+              <button
+                disabled={excluindo}
+                onClick={handleExcluirCliente}
+                style={{ minWidth: 100, background: '#A32D2D', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: excluindo ? 'not-allowed' : 'pointer', opacity: excluindo ? 0.7 : 1 }}
+              >
+                {excluindo ? 'Excluindo...' : 'Sim, excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Novo/Editar Cliente */}
       {modalOpen && (
