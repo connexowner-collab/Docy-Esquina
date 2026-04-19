@@ -37,13 +37,17 @@ export async function GET() {
 
   const [{ data: rawHoje }, { data: rawMes }, { data: rawAno }, { data: rawItens }] = await Promise.all([
     supabase.from('pedidos').select('total, taxa_entrega, pagamento')
+      .eq('desconsiderado', false)
       .gte('created_at', startOfDay(hoje)).lte('created_at', endOfDay(hoje)),
     supabase.from('pedidos').select('total, taxa_entrega, pagamento')
+      .eq('desconsiderado', false)
       .gte('created_at', startOfMonth(hoje)).lte('created_at', endOfMonth(hoje)),
     supabase.from('pedidos').select('total, taxa_entrega, pagamento')
+      .eq('desconsiderado', false)
       .gte('created_at', startOfYear(hoje)).lte('created_at', endOfYear(hoje)),
     supabase.from('pedidos')
       .select('itens_pedido(quantidade, subtotal, itens_cardapio(categorias(nome)))')
+      .eq('desconsiderado', false)
       .gte('created_at', startOfDay(hoje)).lte('created_at', endOfDay(hoje)),
   ])
 

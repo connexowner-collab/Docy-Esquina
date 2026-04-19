@@ -17,6 +17,7 @@ type Pedido = {
   troco: number | null
   observacoes: string | null
   distancia_km: number
+  desconsiderado?: boolean
   clientes: ClientePedido
   enderecos: EnderecoPedido
   itens_pedido: ItemPedido[]
@@ -72,6 +73,7 @@ export default function HistoricoPage() {
   const [loading, setLoading] = useState(false)
   const [resumo, setResumo] = useState<ResumoDia | null>(null)
   const [showResumo, setShowResumo] = useState(false)
+  const [desconsiderandoId, setDesconsiderandoId] = useState<number | null>(null)
   const [filtros, setFiltros] = useState({
     dataInicio: '',
     dataFim: '',
@@ -116,6 +118,19 @@ export default function HistoricoPage() {
   function handlePageChange(p: number) {
     setPage(p)
     fetchPedidos(filtrosAplicados, p)
+  }
+
+  async function handleDesconsiderar(pedido: Pedido) {
+    setDesconsiderandoId(pedido.id)
+    const novoValor = !pedido.desconsiderado
+    await fetch(`/api/pedidos/${pedido.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ desconsiderado: novoValor }),
+    })
+    setPedidos(prev => prev.map(p => p.id === pedido.id ? { ...p, desconsiderado: novoValor } : p))
+    fetchResumo()
+    setDesconsiderandoId(null)
   }
 
   async function exportarExcel() {
@@ -233,8 +248,13 @@ export default function HistoricoPage() {
             ) : pedidos.length === 0 ? (
               <tr><td colSpan={8} style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum pedido encontrado...</td></tr>
             ) : pedidos.map(p => (
-              <tr key={p.id} className="table-row-alt" style={{ borderBottom: '0.5px solid #eee' }}>
-                <td style={{ padding: '10px 12px', fontWeight: 700, color: '#C0392B' }}>#{p.numero_seq}</td>
+              <tr key={p.id} className="table-row-alt" style={{ borderBottom: '0.5px solid #eee', opacity: p.desconsiderado ? 0.45 : 1 }}>
+                <td style={{ padding: '10px 12px', fontWeight: 700, color: p.desconsiderado ? '#999' : '#C0392B' }}>
+                  <span style={{ textDecoration: p.desconsiderado ? 'line-through' : 'none' }}>#{p.numero_seq}</span>
+                  {p.desconsiderado && (
+                    <span style={{ display: 'block', fontSize: 9, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5 }}>desconsiderado</span>
+                  )}
+                </td>
                 <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fmtData(p.created_at)}</td>
                 <td style={{ padding: '10px 12px' }}>
                   <p style={{ fontWeight: 500, fontSize: 13 }}>{p.clientes?.nome}</p>
@@ -256,26 +276,50 @@ export default function HistoricoPage() {
                   </span>
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                  <button
-                    className="btn-outline"
-                    style={{ fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                    onClick={() => imprimirComanda({
-                      numero_seq: p.numero_seq,
-                      created_at: p.created_at,
-                      clientes: { nome: p.clientes?.nome ?? '', telefone: p.clientes?.telefone ?? '' },
-                      enderecos: { logradouro: p.enderecos?.logradouro ?? '', numero: p.enderecos?.numero ?? '', complemento: p.enderecos?.complemento ?? null, bairro: p.enderecos?.bairro ?? '', referencia: p.enderecos?.referencia ?? null },
-                      itens_pedido: (p.itens_pedido ?? []).map(i => ({ nome_snapshot: i.nome_snapshot, quantidade: i.quantidade, preco_snapshot: i.preco_snapshot, subtotal: i.subtotal, observacao: i.observacao ?? null })),
-                      subtotal: Number(p.subtotal),
-                      taxa_entrega: Number(p.taxa_entrega),
-                      total: Number(p.total),
-                      pagamento: p.pagamento,
-                      troco: p.troco,
-                      observacoes: p.observacoes,
-                    })}
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                    Reimprimir
-                  </button>
+                  <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
+                    <button
+                      className="btn-outline"
+                      style={{ fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                      onClick={() => imprimirComanda({
+                        numero_seq: p.numero_seq,
+                        created_at: p.created_at,
+                        clientes: { nome: p.clientes?.nome ?? '', telefone: p.clientes?.telefone ?? '' },
+                        enderecos: { logradouro: p.enderecos?.logradouro ?? '', numero: p.enderecos?.numero ?? '', complemento: p.enderecos?.complemento ?? null, bairro: p.enderecos?.bairro ?? '', referencia: p.enderecos?.referencia ?? null },
+                        itens_pedido: (p.itens_pedido ?? []).map(i => ({ nome_snapshot: i.nome_snapshot, quantidade: i.quantidade, preco_snapshot: i.preco_snapshot, subtotal: i.subtotal, observacao: i.observacao ?? null })),
+                        subtotal: Number(p.subtotal),
+                        taxa_entrega: Number(p.taxa_entrega),
+                        total: Number(p.total),
+                        pagamento: p.pagamento,
+                        troco: p.troco,
+                        observacoes: p.observacoes,
+                      })}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                      Reimprimir
+                    </button>
+                    <button
+                      className="btn-outline"
+                      disabled={desconsiderandoId === p.id}
+                      style={{
+                        fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4,
+                        color: p.desconsiderado ? '#0F6E56' : '#A32D2D',
+                        borderColor: p.desconsiderado ? '#0F6E56' : '#A32D2D',
+                      }}
+                      onClick={() => handleDesconsiderar(p)}
+                    >
+                      {p.desconsiderado ? (
+                        <>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+                          Restaurar
+                        </>
+                      ) : (
+                        <>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          Desconsiderar
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

@@ -25,12 +25,14 @@ export async function GET(request: NextRequest) {
   const { data: pedidosHoje } = await supabase
     .from('pedidos')
     .select('total, taxa_entrega, pagamento')
+    .eq('desconsiderado', false)
     .gte('created_at', startOfDay(data))
     .lte('created_at', endOfDay(data))
 
   const { data: pedidosOntem } = await supabase
     .from('pedidos')
     .select('total')
+    .eq('desconsiderado', false)
     .gte('created_at', startOfDay(ontem))
     .lte('created_at', endOfDay(ontem))
 
