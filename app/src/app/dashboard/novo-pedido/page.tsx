@@ -111,8 +111,8 @@ function Etapa1({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro')
       setEnderecos(prev => prev.map((e, i) => i === idx ? { ...e, distancia_km: String(data.distancia_km) } : e))
-    } catch {
-      setKmErro(prev => ({ ...prev, [idx]: 'Não foi possível calcular — preencha manualmente' }))
+    } catch (err) {
+      setKmErro(prev => ({ ...prev, [idx]: err instanceof Error ? err.message : 'Não foi possível calcular — preencha manualmente' }))
     } finally {
       setCalculandoKm(prev => ({ ...prev, [idx]: false }))
     }
@@ -423,8 +423,8 @@ function Etapa2({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro')
       setNovoEndForm(p => ({ ...p, distancia_km: String(data.distancia_km) }))
-    } catch {
-      setKmErroNovo('Não foi possível calcular — preencha manualmente')
+    } catch (err) {
+      setKmErroNovo(err instanceof Error ? err.message : 'Não foi possível calcular — preencha manualmente')
     } finally {
       setCalculandoKmNovo(false)
     }
