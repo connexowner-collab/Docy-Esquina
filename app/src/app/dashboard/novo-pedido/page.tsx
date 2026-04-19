@@ -77,13 +77,15 @@ function Stepper({ etapa }: { etapa: number }) {
 function Etapa1({
   onClienteEncontrado,
   initialClienteId,
+  initialCliente,
 }: {
   onClienteEncontrado: (c: Cliente) => void
   initialClienteId: string | null
+  initialCliente?: Cliente | null
 }) {
-  const [tel, setTel] = useState('')
+  const [tel, setTel] = useState(initialCliente ? initialCliente.telefone : '')
   const [buscando, setBuscando] = useState(false)
-  const [clienteEncontrado, setClienteEncontrado] = useState<Cliente | null>(null)
+  const [clienteEncontrado, setClienteEncontrado] = useState<Cliente | null>(initialCliente ?? null)
   const [naoEncontrado, setNaoEncontrado] = useState(false)
   const [modalCadastro, setModalCadastro] = useState(false)
   const [cadastroForm, setCadastroForm] = useState({ nome: '', telefone: '' })
@@ -280,13 +282,22 @@ function Etapa1({
 function Etapa2({
   cliente,
   onEnderecoSelecionado,
+  initialEndereco,
+  initialTaxaEntrega,
 }: {
   cliente: Cliente
   onEnderecoSelecionado: (endereco: Endereco, distanciaKm: number, taxaEntrega: number) => void
+  initialEndereco?: Endereco | null
+  initialTaxaEntrega?: number
 }) {
-  const [retirada, setRetirada] = useState(false)
-  const [selecionado, setSelecionado] = useState<number | null>(null)
-  const [freteInfo, setFreteInfo] = useState<{ distancia_km: number; taxa: number; fora_cobertura: boolean } | null>(null)
+  const isRetiradaInicial = initialEndereco?.logradouro === 'Retirada na Loja'
+  const [retirada, setRetirada] = useState(isRetiradaInicial)
+  const [selecionado, setSelecionado] = useState<number | null>(isRetiradaInicial ? null : (initialEndereco?.id ?? null))
+  const [freteInfo, setFreteInfo] = useState<{ distancia_km: number; taxa: number; fora_cobertura: boolean } | null>(
+    initialEndereco && !isRetiradaInicial && initialTaxaEntrega != null
+      ? { distancia_km: initialEndereco.distancia_km ?? 0, taxa: initialTaxaEntrega, fora_cobertura: false }
+      : null
+  )
   const [calculando, setCalculando] = useState(false)
   const [erroFrete, setErroFrete] = useState('')
   const [novoEnd, setNovoEnd] = useState(false)
@@ -502,18 +513,22 @@ function Etapa3({
   endereco,
   taxaEntrega,
   onContinuar,
+  initialItens,
+  initialObservacoes,
 }: {
   cliente: Cliente
   endereco: Endereco
   taxaEntrega: number
   onContinuar: (itens: ItemPedido[], subtotal: number, total: number, observacoes: string, taxaFinal: number) => void
+  initialItens?: ItemPedido[]
+  initialObservacoes?: string
 }) {
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [itensCardapio, setItensCardapio] = useState<ItemCardapio[]>([])
   const [filtroCategoria, setFiltroCategoria] = useState<number | null>(null)
   const [busca, setBusca] = useState('')
-  const [pedido, setPedido] = useState<ItemPedido[]>([])
-  const [observacoes, setObservacoes] = useState('')
+  const [pedido, setPedido] = useState<ItemPedido[]>(initialItens ?? [])
+  const [observacoes, setObservacoes] = useState(initialObservacoes ?? '')
   const [taxaManual, setTaxaManual] = useState<string>(String(taxaEntrega.toFixed(2)))
   const [taxaEditada, setTaxaEditada] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -1082,11 +1097,14 @@ function NovoPedidoContent() {
       ) : etapa === 1 ? (
         <Etapa1
           initialClienteId={initialClienteId}
+          initialCliente={cliente}
           onClienteEncontrado={c => { setCliente(c); setSeqDisplay(null); setEtapa(2) }}
         />
       ) : etapa === 2 && cliente ? (
         <Etapa2
           cliente={cliente}
+          initialEndereco={endereco}
+          initialTaxaEntrega={taxaEntrega}
           onEnderecoSelecionado={(end, dist, taxa) => {
             setEndereco(end); setDistanciaKm(dist); setTaxaEntrega(taxa); setEtapa(3)
           }}
@@ -1096,6 +1114,8 @@ function NovoPedidoContent() {
           cliente={cliente}
           endereco={endereco!}
           taxaEntrega={taxaEntrega}
+          initialItens={itensPedido}
+          initialObservacoes={observacoes}
           onContinuar={(its, sub, tot, obs, taxaFinal) => {
             setItensPedido(its); setSubtotal(sub); setTotal(tot)
             setObservacoes(obs); setTaxaEntrega(taxaFinal); setEtapa(4)
