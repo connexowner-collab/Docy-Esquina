@@ -908,9 +908,16 @@ function Etapa4({
         }
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>PAGAMENTO</span>
-          <span style={{ fontSize: 12, fontWeight: 700, background: '#fff', border: '1px solid #E8870A', color: '#B8600A', borderRadius: 6, padding: '2px 8px' }}>
-            {pagamentoPills.find(p => p.key === pagamento)?.label ?? pagamento}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, background: '#fff', border: '1px solid #E8870A', color: '#B8600A', borderRadius: 6, padding: '2px 8px' }}>
+              {pagamentoPills.find(p => p.key === pagamento)?.label ?? pagamento}
+            </span>
+            {pago && (
+              <span style={{ fontSize: 11, fontWeight: 800, background: '#E8F5E9', border: '1px solid #0F6E56', color: '#0F6E56', borderRadius: 6, padding: '2px 8px' }}>
+                PAGO ✓
+              </span>
+            )}
+          </div>
         </div>
         <div style={{ borderTop: '0.5px solid #F5C070', paddingTop: 10 }}>
           {itens.map(p => (
