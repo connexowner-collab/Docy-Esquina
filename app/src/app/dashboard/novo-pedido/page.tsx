@@ -902,7 +902,10 @@ function Etapa4({
         <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Resumo</p>
         <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 1 }}>{cliente.nome}</p>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 1 }}>{formatTelefone(cliente.telefone)}</p>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{endereco.logradouro}, {endereco.numero} — {endereco.bairro}</p>
+        {endereco.logradouro === 'Retirada na Loja'
+          ? <p style={{ fontSize: 12, color: '#0F6E56', fontWeight: 700, marginBottom: 8 }}>🏪 Retirada na Loja</p>
+          : <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{endereco.logradouro}, {endereco.numero} — {endereco.bairro}</p>
+        }
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>PAGAMENTO</span>
           <span style={{ fontSize: 12, fontWeight: 700, background: '#fff', border: '1px solid #E8870A', color: '#B8600A', borderRadius: 6, padding: '2px 8px' }}>
