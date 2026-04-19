@@ -14,8 +14,8 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 // Geocodifica endereço via Nominatim (OpenStreetMap) — gratuito, sem API key
 async function geocodificar(endereco: string): Promise<{ lat: number; lng: number } | null> {
   try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endereco)}&format=json&limit=1`
-    const res = await fetch(url, { headers: { 'User-Agent': 'DoxyEsquina/1.0' } })
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endereco)}&format=json&limit=1&countrycodes=br`
+    const res = await fetch(url, { headers: { 'User-Agent': 'DoxyEsquina/1.0' }, signal: AbortSignal.timeout(6000) })
     const data = await res.json()
     if (data?.[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
   } catch {}

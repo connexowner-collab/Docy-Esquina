@@ -87,7 +87,25 @@ export default function ConfiguracoesPage() {
     e.preventDefault()
     setSaving(true)
     setSuccess(false)
-    await supabase.from('configuracoes').update(form).eq('id', 1)
+
+    let lat = form.lat_origem
+    let lng = form.lng_origem
+
+    // Geocodifica endereço de origem sempre que salvar (garante lat/lng atualizados)
+    if (form.endereco_origem) {
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(form.endereco_origem)}&format=json&limit=1&countrycodes=br`
+        const res = await fetch(url, { headers: { 'User-Agent': 'DoxyEsquina/1.0' } })
+        const data = await res.json()
+        if (data?.[0]) {
+          lat = parseFloat(data[0].lat)
+          lng = parseFloat(data[0].lon)
+        }
+      } catch {}
+    }
+
+    await supabase.from('configuracoes').update({ ...form, lat_origem: lat, lng_origem: lng }).eq('id', 1)
+    setForm(p => ({ ...p, lat_origem: lat, lng_origem: lng }))
     setSaving(false)
     setSuccess(true)
     setTimeout(() => setSuccess(false), 3000)
