@@ -10,6 +10,11 @@ type Configuracao = {
   nome_estabelecimento: string
   telefone: string
   endereco_origem: string
+  cep_origem: string
+  numero_origem: string
+  bairro_origem: string
+  cidade_origem: string
+  uf_origem: string
   lat_origem: number | null
   lng_origem: number | null
   taxa_minima: number
@@ -24,6 +29,11 @@ export default function ConfiguracoesPage() {
     nome_estabelecimento: '',
     telefone: '',
     endereco_origem: '',
+    cep_origem: '',
+    numero_origem: '',
+    bairro_origem: '',
+    cidade_origem: '',
+    uf_origem: '',
     lat_origem: null,
     lng_origem: null,
     taxa_minima: 5,
@@ -31,6 +41,9 @@ export default function ConfiguracoesPage() {
     valor_por_km: 2,
     km_maximo: 15,
   })
+  const [buscandoCepOrigem, setBuscandoCepOrigem] = useState(false)
+  const [cepOrigemErro, setCepOrigemErro] = useState('')
+  const [geocodificando, setGeocodificando] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -83,18 +96,45 @@ export default function ConfiguracoesPage() {
     setForm(prev => ({ ...prev, [name]: value }))
   }
 
+  async function buscarCepOrigem(cep: string) {
+    const digits = cep.replace(/\D/g, '')
+    if (digits.length !== 8) return
+    setBuscandoCepOrigem(true)
+    setCepOrigemErro('')
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
+      const data = await res.json()
+      if (data.erro) { setCepOrigemErro('CEP não encontrado'); return }
+      setForm(p => ({
+        ...p,
+        endereco_origem: data.logradouro ?? p.endereco_origem,
+        bairro_origem: data.bairro ?? p.bairro_origem,
+        cidade_origem: data.localidade ?? p.cidade_origem,
+        uf_origem: data.uf ?? p.uf_origem,
+      }))
+    } catch {
+      setCepOrigemErro('Erro ao buscar CEP')
+    } finally {
+      setBuscandoCepOrigem(false)
+    }
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     setSuccess(false)
 
+    // Monta string completa para geocodificar com cidade e UF
+    const partes = [form.endereco_origem, form.numero_origem, form.bairro_origem, form.cidade_origem, form.uf_origem].filter(Boolean)
+    const enderecoCompleto = partes.join(', ')
+
     let lat = form.lat_origem
     let lng = form.lng_origem
 
-    // Geocodifica endereço de origem sempre que salvar (garante lat/lng atualizados)
-    if (form.endereco_origem) {
+    if (enderecoCompleto) {
+      setGeocodificando(true)
       try {
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(form.endereco_origem)}&format=json&limit=1&countrycodes=br`
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(enderecoCompleto)}&format=json&limit=1&countrycodes=br`
         const res = await fetch(url, { headers: { 'User-Agent': 'DoxyEsquina/1.0' } })
         const data = await res.json()
         if (data?.[0]) {
@@ -102,6 +142,7 @@ export default function ConfiguracoesPage() {
           lng = parseFloat(data[0].lon)
         }
       } catch {}
+      setGeocodificando(false)
     }
 
     await supabase.from('configuracoes').update({ ...form, lat_origem: lat, lng_origem: lng }).eq('id', 1)
@@ -160,17 +201,73 @@ export default function ConfiguracoesPage() {
                 <Field label="Telefone de Contato" name="telefone" value={form.telefone} onChange={handle} />
                 <Field label="CNPJ (Opcional)" name="cnpj" value="" onChange={() => {}} placeholder="00.000.000/0000-00" disabled />
               </div>
-              <div style={{ marginTop: 16 }}>
-                <Field
-                  label="Endereço de Origem"
-                  name="endereco_origem"
-                  value={form.endereco_origem}
-                  onChange={handle}
-                  placeholder="Av. Paulista, 1000 - Bela Vista, São Paulo - SP"
-                  icon={
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C0392B" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                  }
-                />
+              {/* Endereço de Origem estruturado */}
+              <div style={{ marginTop: 16, background: '#F9F9F9', borderRadius: 10, padding: 16, border: '0.5px solid #e8e8ee' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C0392B" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#555' }}>Endereço do Estabelecimento</span>
+                  {form.lat_origem && form.lng_origem && (
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#0F6E56', background: '#E8F5E9', padding: '2px 7px', borderRadius: 10 }}>
+                      ✓ Geocodificado
+                    </span>
+                  )}
+                  {geocodificando && (
+                    <span style={{ fontSize: 10, color: '#888' }}>Geocodificando...</span>
+                  )}
+                </div>
+
+                {/* CEP */}
+                <div style={{ marginBottom: 10 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#777', marginBottom: 4 }}>
+                    CEP <span style={{ fontWeight: 400, color: '#bbb' }}>(preenche endereço automaticamente)</span>
+                  </label>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      className="input"
+                      placeholder="00000-000"
+                      value={form.cep_origem ?? ''}
+                      maxLength={9}
+                      style={{ width: 150 }}
+                      onChange={e => {
+                        const raw = e.target.value.replace(/\D/g, '').slice(0, 8)
+                        const fmt = raw.length > 5 ? `${raw.slice(0, 5)}-${raw.slice(5)}` : raw
+                        setForm(p => ({ ...p, cep_origem: fmt }))
+                        setCepOrigemErro('')
+                        if (raw.length === 8) buscarCepOrigem(fmt)
+                      }}
+                    />
+                    {buscandoCepOrigem && <span style={{ fontSize: 11, color: '#888' }}>Buscando...</span>}
+                    {cepOrigemErro && <span style={{ fontSize: 11, color: '#A32D2D' }}>{cepOrigemErro}</span>}
+                  </div>
+                </div>
+
+                {/* Logradouro + Número */}
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#777', marginBottom: 4 }}>Logradouro *</label>
+                    <input className="input" name="endereco_origem" placeholder="Rua, Av..." value={form.endereco_origem} onChange={handle} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#777', marginBottom: 4 }}>Número *</label>
+                    <input className="input" name="numero_origem" placeholder="123" value={form.numero_origem ?? ''} onChange={handle} />
+                  </div>
+                </div>
+
+                {/* Bairro + Cidade + UF */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px', gap: 10 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#777', marginBottom: 4 }}>Bairro</label>
+                    <input className="input" name="bairro_origem" placeholder="Bairro" value={form.bairro_origem ?? ''} onChange={handle} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#777', marginBottom: 4 }}>Cidade *</label>
+                    <input className="input" name="cidade_origem" placeholder="São Paulo" value={form.cidade_origem ?? ''} onChange={handle} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#777', marginBottom: 4 }}>UF *</label>
+                    <input className="input" name="uf_origem" placeholder="SP" maxLength={2} value={form.uf_origem ?? ''} onChange={handle} />
+                  </div>
+                </div>
               </div>
             </div>
 
