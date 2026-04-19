@@ -529,11 +529,14 @@ export default function ClientesPage() {
 
                         {/* CEP */}
                         <div style={{ marginBottom: 8 }}>
+                          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
+                            CEP <span style={{ fontWeight: 400, color: '#bbb' }}>(opcional — preenche endereço automaticamente)</span>
+                          </label>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                             <div style={{ position: 'relative', width: 140 }}>
                               <input
                                 className="input"
-                                placeholder="CEP"
+                                placeholder="00000-000"
                                 value={en.cep}
                                 maxLength={9}
                                 onChange={e => {
