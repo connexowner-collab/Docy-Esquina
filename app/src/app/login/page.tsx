@@ -61,10 +61,10 @@ export default function LoginPage() {
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.10) 100%)', borderRadius: 0 }} />
             <div style={{ position: 'relative', zIndex: 1 }}>
               <p style={{ color: '#fff', fontSize: 22, fontWeight: 800, lineHeight: 1.3, margin: '0 0 10px' }}>
-                Precision in every detail,<br />excellence in every service.
+                Precisão em cada detalhe,<br />excelência em cada atendimento.
               </p>
               <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, margin: 0, lineHeight: 1.5 }}>
-                Experience the next generation of culinary management.<br />Designed for the masters of the kitchen.
+                A nova geração de gestão para estabelecimentos.<br />Feito para quem comanda a cozinha.
               </p>
             </div>
           </div>
@@ -73,7 +73,7 @@ export default function LoginPage() {
           <div style={{ flex: 1, padding: '40px 44px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <div style={{ marginBottom: 28 }}>
               <h1 style={{ fontSize: 26, fontWeight: 800, color: '#C0392B', margin: '0 0 2px' }}>Docy Esquina</h1>
-              <p style={{ fontSize: 11, fontWeight: 600, color: '#999', letterSpacing: 1.5, margin: '0 0 20px', textTransform: 'uppercase' }}>Management Portal</p>
+              <p style={{ fontSize: 11, fontWeight: 600, color: '#999', letterSpacing: 1.5, margin: '0 0 20px', textTransform: 'uppercase' }}>Portal de Gestão</p>
               <h2 style={{ fontSize: 22, fontWeight: 700, color: '#1a1a1a', margin: '0 0 4px' }}>Seja bem-vindo</h2>
               <p style={{ fontSize: 13, color: '#777', margin: 0 }}>Acesse sua conta para gerenciar sua cozinha.</p>
             </div>
@@ -178,9 +178,9 @@ export default function LoginPage() {
 
       {/* Footer */}
       <div style={{ borderTop: '1px solid #e5e5e5', background: '#fff', padding: '14px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <span style={{ fontSize: 12, color: '#aaa' }}>© 2024 Docy Esquina Culinary Management. All rights reserved.</span>
+        <span style={{ fontSize: 12, color: '#aaa' }}>© 2025 Docy Esquina. Todos os direitos reservados.</span>
         <div style={{ display: 'flex', gap: 20 }}>
-          {['Privacy Policy', 'Terms of Service', 'Contact Support'].map(link => (
+          {['Política de Privacidade', 'Termos de Uso', 'Suporte'].map(link => (
             <a key={link} href="#" style={{ fontSize: 12, color: '#aaa', textDecoration: 'none' }}>{link}</a>
           ))}
         </div>

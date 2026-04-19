@@ -604,7 +604,7 @@ function Etapa3({
             <thead>
               <tr className="table-header">
                 <th style={{ padding: '8px 12px', textAlign: 'left' }}>Item</th>
-                <th style={{ padding: '8px 12px', textAlign: 'right' }}>Unit.</th>
+                <th style={{ padding: '8px 12px', textAlign: 'right' }}>Preço</th>
                 <th style={{ padding: '8px 12px', textAlign: 'center', width: 40 }}>+</th>
               </tr>
             </thead>
@@ -672,7 +672,7 @@ function Etapa3({
                   <input
                     value={p.observacao ?? ''}
                     onChange={e => updateObservacao(p.item.id, e.target.value)}
-                    placeholder="Obs: sem cebola..."
+                    placeholder="Obs.: sem cebola..."
                     style={{ width: '100%', marginTop: 4, fontSize: 11, padding: '3px 7px', borderRadius: 6, border: '0.5px solid #E8C97A', background: '#FFFBF0', color: '#7A5500', outline: 'none', boxSizing: 'border-box' }}
                   />
                 </div>

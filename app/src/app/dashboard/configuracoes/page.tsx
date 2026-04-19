@@ -342,8 +342,8 @@ export default function ConfiguracoesPage() {
                 </div>
                 {/* Badges */}
                 <div style={{ position: 'absolute', bottom: 10, left: 10, display: 'flex', gap: 6 }}>
-                  <span style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 6, backdropFilter: 'blur(4px)' }}>LIVE VIEW</span>
-                  <span style={{ background: '#C0392B', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 6 }}>{form.km_maximo}KM LIMIT</span>
+                  <span style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 6, backdropFilter: 'blur(4px)' }}>AO VIVO</span>
+                  <span style={{ background: '#C0392B', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 6 }}>{form.km_maximo}KM LIMITE</span>
                 </div>
               </div>
               <div style={{ padding: '16px 20px' }}>

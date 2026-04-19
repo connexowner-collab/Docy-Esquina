@@ -21,7 +21,7 @@ export default function TopBar({ userEmail }: { userEmail: string }) {
         <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
         <input
           type="text"
-          placeholder="Search parameters..."
+          placeholder="Buscar..."
           style={{
             width: '100%',
             border: '1.5px solid #e8e8ee',
