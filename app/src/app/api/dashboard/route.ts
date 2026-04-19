@@ -4,16 +4,25 @@ import { createClient } from '@/lib/supabase/server'
 function todayBrasilia(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 }
-function startOfDay(d: string) { return `${d}T00:00:00.000Z` }
-function endOfDay(d: string)   { return `${d}T23:59:59.999Z` }
-function startOfMonth(d: string) { return `${d.slice(0, 7)}-01T00:00:00.000Z` }
+// Brasília = UTC-3: meia-noite BRT = 03:00 UTC do mesmo dia
+function startOfDay(d: string) { return `${d}T03:00:00.000Z` }
+function endOfDay(d: string) {
+  const next = new Date(`${d}T03:00:00.000Z`)
+  next.setDate(next.getDate() + 1)
+  next.setMilliseconds(next.getMilliseconds() - 1)
+  return next.toISOString()
+}
+function startOfMonth(d: string) { return `${d.slice(0, 7)}-01T03:00:00.000Z` }
 function endOfMonth(d: string) {
   const [y, m] = d.split('-').map(Number)
-  const last = new Date(y, m, 0).getDate()
-  return `${d.slice(0, 7)}-${String(last).padStart(2, '0')}T23:59:59.999Z`
+  const firstNextMonth = new Date(Date.UTC(y, m, 1, 3, 0, 0, 0))
+  firstNextMonth.setMilliseconds(firstNextMonth.getMilliseconds() - 1)
+  return firstNextMonth.toISOString()
 }
-function startOfYear(d: string) { return `${d.slice(0, 4)}-01-01T00:00:00.000Z` }
-function endOfYear(d: string)   { return `${d.slice(0, 4)}-12-31T23:59:59.999Z` }
+function startOfYear(d: string) { return `${d.slice(0, 4)}-01-01T03:00:00.000Z` }
+function endOfYear(d: string) {
+  return `${Number(d.slice(0, 4)) + 1}-01-01T02:59:59.999Z`
+}
 
 function buildPagamento() {
   return { pix: { quantidade: 0, total: 0 }, dinheiro: { quantidade: 0, total: 0 }, debito: { quantidade: 0, total: 0 }, credito: { quantidade: 0, total: 0 } }

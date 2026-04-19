@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+// Brasília = UTC-3: meia-noite BRT = 03:00 UTC do mesmo dia
 function startOfDay(dateStr: string): string {
-  return `${dateStr}T00:00:00.000Z`
+  return `${dateStr}T03:00:00.000Z`
 }
 function endOfDay(dateStr: string): string {
-  return `${dateStr}T23:59:59.999Z`
+  const next = new Date(`${dateStr}T03:00:00.000Z`)
+  next.setDate(next.getDate() + 1)
+  next.setMilliseconds(next.getMilliseconds() - 1)
+  return next.toISOString() // próximo dia 02:59:59.999Z = 23:59:59.999 BRT
 }
 function subtractOneDay(dateStr: string): string {
   const d = new Date(dateStr)

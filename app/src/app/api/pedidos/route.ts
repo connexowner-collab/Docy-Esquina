@@ -23,9 +23,10 @@ export async function GET(request: NextRequest) {
     `, { count: 'exact' })
     .order('created_at', { ascending: false })
 
-  if (dataInicio) query = query.gte('created_at', dataInicio)
+  // Brasília = UTC-3: meia-noite BRT = 03:00 UTC
+  if (dataInicio) query = query.gte('created_at', `${dataInicio}T03:00:00.000Z`)
   if (dataFim) {
-    const fim = new Date(dataFim)
+    const fim = new Date(`${dataFim}T03:00:00.000Z`)
     fim.setDate(fim.getDate() + 1)
     query = query.lt('created_at', fim.toISOString())
   }
