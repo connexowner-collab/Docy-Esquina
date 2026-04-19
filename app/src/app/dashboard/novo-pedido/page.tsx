@@ -13,8 +13,8 @@ type ItemPedido = { item: ItemCardapio; quantidade: number; observacao?: string 
 type Pagamento = 'dinheiro' | 'pix' | 'debito' | 'credito'
 type PedidoCriado = { id: number; numero_seq: number; total: number; pagamento: string; troco?: number | null; pago?: boolean; clientes: Cliente; itens_pedido: Array<{ nome_snapshot: string; quantidade: number; preco_snapshot: number; observacao?: string | null }> }
 
-type EnderecoForm = { cep: string; logradouro: string; numero: string; complemento: string; bairro: string; cidade: string; referencia: string; distancia_km: string }
-const emptyEnderecoForm: EnderecoForm = { cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', referencia: '', distancia_km: '' }
+type EnderecoForm = { cep: string; logradouro: string; numero: string; complemento: string; bairro: string; cidade: string; uf: string; referencia: string; distancia_km: string }
+const emptyEnderecoForm: EnderecoForm = { cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '', referencia: '', distancia_km: '' }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatTelefone(v: string): string {
@@ -99,20 +99,24 @@ function Etapa1({
 
   async function calcularDistancia(idx: number, en: EnderecoForm) {
     if (!en.logradouro || !en.numero || !en.bairro) return
-    const partes = [en.logradouro, en.numero, en.bairro, en.cidade].filter(Boolean)
     setCalculandoKm(prev => ({ ...prev, [idx]: true }))
     setKmErro(prev => ({ ...prev, [idx]: '' }))
     try {
-      const res = await fetch('/api/frete', {
+      const geoRes = await fetch('/api/geocodificar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endereco_destino: partes.join(', '),
-          cep_destino: en.cep || undefined,
-        }),
+        body: JSON.stringify({ logradouro: en.logradouro, numero: en.numero, bairro: en.bairro, cidade: en.cidade, uf: en.uf, cep: en.cep }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erro')
+      const geo = await geoRes.json()
+      if (!geoRes.ok) throw new Error(geo.error || 'Endereço não encontrado')
+
+      const freteRes = await fetch('/api/frete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat_destino: geo.lat, lng_destino: geo.lng, bairro: en.bairro }),
+      })
+      const data = await freteRes.json()
+      if (!freteRes.ok) throw new Error(data.error || 'Erro ao calcular frete')
       setEnderecos(prev => prev.map((e, i) => i === idx ? { ...e, distancia_km: String(data.distancia_km) } : e))
     } catch (err) {
       setKmErro(prev => ({ ...prev, [idx]: err instanceof Error ? err.message : 'Não foi possível calcular — preencha manualmente' }))
@@ -132,13 +136,14 @@ function Etapa1({
       const logradouro = data.logradouro ?? enderecos[idx].logradouro
       const bairro = data.bairro ?? enderecos[idx].bairro
       const cidade = data.localidade ?? enderecos[idx].cidade ?? ''
+      const uf = data.uf ?? enderecos[idx].uf ?? ''
       const numero = enderecos[idx].numero
       setEnderecos(prev => prev.map((en, i) => i !== idx ? en : {
-        ...en, logradouro, bairro, cidade,
+        ...en, logradouro, bairro, cidade, uf,
         complemento: en.complemento || (data.complemento ?? ''),
       }))
       if (logradouro && numero && bairro) {
-        calcularDistancia(idx, { ...enderecos[idx], logradouro, bairro, cidade, numero })
+        calcularDistancia(idx, { ...enderecos[idx], logradouro, bairro, cidade, uf, numero })
       }
     } catch {
       setCepErro(prev => ({ ...prev, [idx]: 'Erro ao buscar CEP' }))
@@ -414,20 +419,24 @@ function Etapa2({
 
   async function calcularDistanciaNovo(form: EnderecoForm) {
     if (!form.logradouro || !form.numero || !form.bairro) return
-    const partes = [form.logradouro, form.numero, form.bairro, form.cidade].filter(Boolean)
     setCalculandoKmNovo(true)
     setKmErroNovo('')
     try {
-      const res = await fetch('/api/frete', {
+      const geoRes = await fetch('/api/geocodificar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endereco_destino: partes.join(', '),
-          cep_destino: form.cep || undefined,
-        }),
+        body: JSON.stringify({ logradouro: form.logradouro, numero: form.numero, bairro: form.bairro, cidade: form.cidade, uf: form.uf, cep: form.cep }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erro')
+      const geo = await geoRes.json()
+      if (!geoRes.ok) throw new Error(geo.error || 'Endereço não encontrado')
+
+      const freteRes = await fetch('/api/frete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat_destino: geo.lat, lng_destino: geo.lng, bairro: form.bairro }),
+      })
+      const data = await freteRes.json()
+      if (!freteRes.ok) throw new Error(data.error || 'Erro ao calcular frete')
       setNovoEndForm(p => ({ ...p, distancia_km: String(data.distancia_km) }))
     } catch (err) {
       setKmErroNovo(err instanceof Error ? err.message : 'Não foi possível calcular — preencha manualmente')
@@ -448,12 +457,13 @@ function Etapa2({
       const logradouro = data.logradouro ?? novoEndForm.logradouro
       const bairro = data.bairro ?? novoEndForm.bairro
       const cidade = data.localidade ?? ''
+      const uf = data.uf ?? ''
       setNovoEndForm(p => ({
-        ...p, logradouro, bairro, cidade,
+        ...p, logradouro, bairro, cidade, uf,
         complemento: p.complemento || (data.complemento ?? ''),
       }))
       if (logradouro && novoEndForm.numero && bairro) {
-        calcularDistanciaNovo({ ...novoEndForm, logradouro, bairro, cidade })
+        calcularDistanciaNovo({ ...novoEndForm, logradouro, bairro, cidade, uf })
       }
     } catch {
       setCepErroNovo('Erro ao buscar CEP')

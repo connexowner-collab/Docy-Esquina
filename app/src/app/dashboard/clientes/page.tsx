@@ -32,11 +32,12 @@ type EnderecoForm = {
   complemento: string
   bairro: string
   cidade: string
+  uf: string
   referencia: string
   distancia_km: string
 }
 
-const emptyEndereco: EnderecoForm = { cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', referencia: '', distancia_km: '' }
+const emptyEndereco: EnderecoForm = { cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '', referencia: '', distancia_km: '' }
 
 function formatTelefone(v: string): string {
   const d = v.replace(/\D/g, '').slice(0, 11)
@@ -95,20 +96,25 @@ export default function ClientesPage() {
 
   async function calcularDistancia(idx: number, en: EnderecoForm) {
     if (!en.logradouro || !en.numero || !en.bairro) return
-    const partes = [en.logradouro, en.numero, en.bairro, en.cidade].filter(Boolean)
     setCalculandoKm(prev => ({ ...prev, [idx]: true }))
     setKmErro(prev => ({ ...prev, [idx]: '' }))
     try {
-      const res = await fetch('/api/frete', {
+      // Geocodifica destino server-side (4 tentativas em cascata)
+      const geoRes = await fetch('/api/geocodificar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endereco_destino: partes.join(', '),
-          cep_destino: en.cep || undefined,
-        }),
+        body: JSON.stringify({ logradouro: en.logradouro, numero: en.numero, bairro: en.bairro, cidade: en.cidade, uf: en.uf, cep: en.cep }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erro ao calcular')
+      const geo = await geoRes.json()
+      if (!geoRes.ok) throw new Error(geo.error || 'Endereço não encontrado')
+
+      const freteRes = await fetch('/api/frete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat_destino: geo.lat, lng_destino: geo.lng, bairro: en.bairro }),
+      })
+      const data = await freteRes.json()
+      if (!freteRes.ok) throw new Error(data.error || 'Erro ao calcular frete')
       setEnderecos(prev => prev.map((e, i) => i === idx ? { ...e, distancia_km: String(data.distancia_km) } : e))
     } catch (err) {
       setKmErro(prev => ({ ...prev, [idx]: err instanceof Error ? err.message : 'Não foi possível calcular — preencha manualmente' }))
@@ -129,13 +135,14 @@ export default function ClientesPage() {
       const logradouro = data.logradouro ?? enderecos[idx].logradouro
       const bairro = data.bairro ?? enderecos[idx].bairro
       const cidade = data.localidade ?? enderecos[idx].cidade ?? ''
+      const uf = data.uf ?? enderecos[idx].uf ?? ''
       const numero = enderecos[idx].numero
       setEnderecos(prev => prev.map((en, i) => i !== idx ? en : {
-        ...en, logradouro, bairro, cidade,
+        ...en, logradouro, bairro, cidade, uf,
         complemento: en.complemento || (data.complemento ?? ''),
       }))
       if (logradouro && numero && bairro) {
-        calcularDistancia(idx, { ...enderecos[idx], logradouro, bairro, cidade, numero })
+        calcularDistancia(idx, { ...enderecos[idx], logradouro, bairro, cidade, uf, numero })
       }
     } catch {
       setCepErro(prev => ({ ...prev, [idx]: 'Erro ao buscar CEP' }))
