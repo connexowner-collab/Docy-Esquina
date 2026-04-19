@@ -25,6 +25,7 @@ type Cliente = {
 
 type EnderecoForm = {
   id?: number
+  cep: string
   logradouro: string
   numero: string
   complemento: string
@@ -33,7 +34,7 @@ type EnderecoForm = {
   distancia_km: string
 }
 
-const emptyEndereco: EnderecoForm = { logradouro: '', numero: '', complemento: '', bairro: '', referencia: '', distancia_km: '' }
+const emptyEndereco: EnderecoForm = { cep: '', logradouro: '', numero: '', complemento: '', bairro: '', referencia: '', distancia_km: '' }
 
 function formatTelefone(v: string): string {
   const d = v.replace(/\D/g, '').slice(0, 11)
@@ -67,6 +68,30 @@ export default function ClientesPage() {
   const [saving, setSaving] = useState(false)
   const [clientePage, setClientePage] = useState(1)
   const [formError, setFormError] = useState('')
+  const [buscandoCep, setBuscandoCep] = useState<number | null>(null)
+  const [cepErro, setCepErro] = useState<Record<number, string>>({})
+
+  async function buscarCep(idx: number, cep: string) {
+    const digits = cep.replace(/\D/g, '')
+    if (digits.length !== 8) return
+    setBuscandoCep(idx)
+    setCepErro(prev => ({ ...prev, [idx]: '' }))
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
+      const data = await res.json()
+      if (data.erro) { setCepErro(prev => ({ ...prev, [idx]: 'CEP não encontrado' })); return }
+      setEnderecos(prev => prev.map((en, i) => i !== idx ? en : {
+        ...en,
+        logradouro: data.logradouro ?? en.logradouro,
+        bairro: data.bairro ?? en.bairro,
+        complemento: en.complemento || (data.complemento ?? ''),
+      }))
+    } catch {
+      setCepErro(prev => ({ ...prev, [idx]: 'Erro ao buscar CEP' }))
+    } finally {
+      setBuscandoCep(null)
+    }
+  }
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const todosClientes = useRef<Cliente[]>([])
 
@@ -142,6 +167,7 @@ export default function ClientesPage() {
     setEnderecos(cliente.enderecos.length > 0
       ? cliente.enderecos.map(e => ({
           id: e.id,
+          cep: '',
           logradouro: e.logradouro,
           numero: e.numero,
           complemento: e.complemento ?? '',
@@ -500,6 +526,37 @@ export default function ClientesPage() {
                             </button>
                           )}
                         </div>
+
+                        {/* CEP */}
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <div style={{ position: 'relative', width: 140 }}>
+                              <input
+                                className="input"
+                                placeholder="CEP"
+                                value={en.cep}
+                                maxLength={9}
+                                onChange={e => {
+                                  const raw = e.target.value.replace(/\D/g, '').slice(0, 8)
+                                  const fmt = raw.length > 5 ? `${raw.slice(0, 5)}-${raw.slice(5)}` : raw
+                                  updateEndereco(idx, 'cep', fmt)
+                                  setCepErro(prev => ({ ...prev, [idx]: '' }))
+                                  if (raw.length === 8) buscarCep(idx, raw)
+                                }}
+                              />
+                            </div>
+                            {buscandoCep === idx && (
+                              <span style={{ fontSize: 11, color: '#888' }}>Buscando...</span>
+                            )}
+                            {cepErro[idx] && (
+                              <span style={{ fontSize: 11, color: '#A32D2D' }}>{cepErro[idx]}</span>
+                            )}
+                            {!buscandoCep && !cepErro[idx] && en.logradouro && en.cep?.replace(/\D/g, '').length === 8 && (
+                              <span style={{ fontSize: 11, color: '#0F6E56' }}>✓ Endereço encontrado</span>
+                            )}
+                          </div>
+                        </div>
+
                         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
                           <input className="input" placeholder="Logradouro *" value={en.logradouro} onChange={e => updateEndereco(idx, 'logradouro', e.target.value)} />
                           <input className="input" placeholder="Número *" value={en.numero} onChange={e => updateEndereco(idx, 'numero', e.target.value)} />
