@@ -133,34 +133,20 @@ export default function ConfiguracoesPage() {
 
     setGeocodificando(true)
     try {
-      // Tenta 1: endereço completo
-      if (enderecoCompleto) {
-        const r1 = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(enderecoCompleto)}&format=json&limit=1&countrycodes=br`,
-          { headers: { 'User-Agent': 'DoxyEsquina/1.0' } }
-        )
-        const d1 = await r1.json()
-        if (d1?.[0]) { lat = parseFloat(d1[0].lat); lng = parseFloat(d1[0].lon) }
-      }
-      // Tenta 2: só pelo CEP (mais confiável para endereços brasileiros)
-      if ((!lat || !lng) && form.cep_origem) {
-        const cepDigits = form.cep_origem.replace(/\D/g, '')
-        const r2 = await fetch(
-          `https://nominatim.openstreetmap.org/search?postalcode=${cepDigits}&countrycodes=br&format=json&limit=1`,
-          { headers: { 'User-Agent': 'DoxyEsquina/1.0' } }
-        )
-        const d2 = await r2.json()
-        if (d2?.[0]) { lat = parseFloat(d2[0].lat); lng = parseFloat(d2[0].lon) }
-      }
-      // Tenta 3: cidade + UF
-      if ((!lat || !lng) && form.cidade_origem && form.uf_origem) {
-        const r3 = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(`${form.cidade_origem}, ${form.uf_origem}`)}&format=json&limit=1&countrycodes=br`,
-          { headers: { 'User-Agent': 'DoxyEsquina/1.0' } }
-        )
-        const d3 = await r3.json()
-        if (d3?.[0]) { lat = parseFloat(d3[0].lat); lng = parseFloat(d3[0].lon) }
-      }
+      const geoRes = await fetch('/api/geocodificar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          logradouro: form.endereco_origem,
+          numero: form.numero_origem,
+          bairro: form.bairro_origem,
+          cidade: form.cidade_origem,
+          uf: form.uf_origem,
+          cep: form.cep_origem,
+        }),
+      })
+      const geoData = await geoRes.json()
+      if (geoRes.ok) { lat = geoData.lat; lng = geoData.lng }
     } catch {}
     setGeocodificando(false)
 
