@@ -196,6 +196,7 @@ export default function ClientesPage() {
           complemento: e.complemento ?? '',
           bairro: e.bairro,
           cidade: '',
+          uf: '',
           referencia: e.referencia ?? '',
           distancia_km: e.distancia_km != null ? String(e.distancia_km) : '',
         }))
