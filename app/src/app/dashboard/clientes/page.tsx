@@ -70,8 +70,8 @@ export default function ClientesPage() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const todosClientes = useRef<Cliente[]>([])
 
-  const fetchClientes = useCallback(async (nome: string, tel: string) => {
-    setLoading(true)
+  const fetchClientes = useCallback(async (nome: string, tel: string, inicial = false) => {
+    if (inicial) setLoading(true)
     const params = new URLSearchParams()
     if (nome) params.set('nome', nome)
     if (tel) params.set('telefone', tel)
@@ -80,10 +80,10 @@ export default function ClientesPage() {
     const lista = Array.isArray(data) ? data : []
     setClientes(lista)
     if (!nome && !tel) todosClientes.current = lista
-    setLoading(false)
+    if (inicial) setLoading(false)
   }, [])
 
-  useEffect(() => { fetchClientes('', '') }, [fetchClientes])
+  useEffect(() => { fetchClientes('', '', true) }, [fetchClientes])
 
   function handleFiltroNome(v: string) {
     setFiltroNome(v)
@@ -125,7 +125,7 @@ export default function ClientesPage() {
   function limparFiltros() {
     setFiltroNome(''); setFiltroTel('')
     setShowSugNome(false); setShowSugTel(false)
-    fetchClientes('', '')
+    fetchClientes('', '', true)
   }
 
   function openNovoCliente() {
@@ -257,70 +257,71 @@ export default function ClientesPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
         {/* Painel esquerdo */}
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {/* Barra de filtros */}
+          <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--border)', background: '#fafafa', display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#aaa', pointerEvents: 'none' }}>👤</span>
+              <input
+                value={filtroNome}
+                onChange={e => handleFiltroNome(e.target.value)}
+                onFocus={() => sugestoesNome.length > 0 && setShowSugNome(true)}
+                onBlur={() => setTimeout(() => setShowSugNome(false), 150)}
+                placeholder="Buscar por nome..."
+                style={{ width: '100%', padding: '8px 10px 8px 30px', fontSize: 13, borderRadius: 8, border: '1px solid #e0e0e0', outline: 'none', background: '#fff', boxSizing: 'border-box' }}
+              />
+              {showSugNome && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: 8, boxShadow: '0 6px 16px rgba(0,0,0,0.12)', zIndex: 200, maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
+                  {sugestoesNome.map(s => (
+                    <div key={s} onMouseDown={() => aplicarSugestaoNome(s)}
+                      style={{ padding: '9px 14px', fontSize: 13, cursor: 'pointer', borderBottom: '0.5px solid #f0f0f0' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                      onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+                    >{s}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#aaa', pointerEvents: 'none' }}>📞</span>
+              <input
+                value={filtroTel}
+                onChange={e => handleFiltroTel(e.target.value)}
+                onFocus={() => sugestoesTel.length > 0 && setShowSugTel(true)}
+                onBlur={() => setTimeout(() => setShowSugTel(false), 150)}
+                placeholder="Buscar por telefone..."
+                style={{ width: '100%', padding: '8px 10px 8px 30px', fontSize: 13, borderRadius: 8, border: '1px solid #e0e0e0', outline: 'none', background: '#fff', boxSizing: 'border-box' }}
+              />
+              {showSugTel && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: 8, boxShadow: '0 6px 16px rgba(0,0,0,0.12)', zIndex: 200, maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
+                  {sugestoesTel.map(s => (
+                    <div key={s} onMouseDown={() => aplicarSugestaoTel(s)}
+                      style={{ padding: '9px 14px', fontSize: 13, cursor: 'pointer', borderBottom: '0.5px solid #f0f0f0' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                      onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+                    >{s}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {(filtroNome || filtroTel) && (
+              <button onClick={limparFiltros} style={{ fontSize: 12, padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', color: '#666', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                ✕ Limpar
+              </button>
+            )}
+          </div>
+
           {loading ? (
-            <p style={{ padding: 24, color: 'var(--text-muted)', textAlign: 'center' }}>Buscando...</p>
+            <p style={{ padding: 24, color: 'var(--text-muted)', textAlign: 'center' }}>Carregando...</p>
           ) : clientes.length === 0 && !filtroNome && !filtroTel ? (
             <p style={{ padding: 24, color: 'var(--text-muted)', textAlign: 'center' }}>Nenhum cliente cadastrado ainda.</p>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr className="table-header">
-                  <th style={{ padding: '10px 16px', textAlign: 'left' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Cliente</div>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        value={filtroNome}
-                        onChange={e => handleFiltroNome(e.target.value)}
-                        onFocus={() => sugestoesNome.length > 0 && setShowSugNome(true)}
-                        onBlur={() => setTimeout(() => setShowSugNome(false), 150)}
-                        placeholder="Buscar nome..."
-                        style={{ width: '100%', padding: '6px 10px', fontSize: 12, borderRadius: 8, border: '1px solid #ddd', outline: 'none', fontWeight: 400, boxSizing: 'border-box' }}
-                      />
-                      {showSugNome && (
-                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 100, maxHeight: 200, overflowY: 'auto' }}>
-                          {sugestoesNome.map(s => (
-                            <div key={s} onMouseDown={() => aplicarSugestaoNome(s)} style={{ padding: '8px 12px', fontSize: 12, cursor: 'pointer', borderBottom: '0.5px solid #f0f0f0' }}
-                              onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
-                              onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-                            >{s}</div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </th>
-                  <th style={{ padding: '10px 16px', textAlign: 'left' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Telefone</div>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        value={filtroTel}
-                        onChange={e => handleFiltroTel(e.target.value)}
-                        onFocus={() => sugestoesTel.length > 0 && setShowSugTel(true)}
-                        onBlur={() => setTimeout(() => setShowSugTel(false), 150)}
-                        placeholder="Buscar telefone..."
-                        style={{ width: '100%', padding: '6px 10px', fontSize: 12, borderRadius: 8, border: '1px solid #ddd', outline: 'none', fontWeight: 400, boxSizing: 'border-box' }}
-                      />
-                      {showSugTel && (
-                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 100, maxHeight: 200, overflowY: 'auto' }}>
-                          {sugestoesTel.map(s => (
-                            <div key={s} onMouseDown={() => aplicarSugestaoTel(s)} style={{ padding: '8px 12px', fontSize: 12, cursor: 'pointer', borderBottom: '0.5px solid #f0f0f0' }}
-                              onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
-                              onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-                            >{s}</div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </th>
-                  <th style={{ padding: '10px 16px', textAlign: 'center', verticalAlign: 'bottom' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Endereços</div>
-                  </th>
-                  <th style={{ padding: '10px 16px', textAlign: 'center', verticalAlign: 'bottom' }}>
-                    {(filtroNome || filtroTel) && (
-                      <button onClick={limparFiltros} style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, border: '1px solid #ddd', background: '#f5f5f5', cursor: 'pointer', color: '#666', whiteSpace: 'nowrap' }}>
-                        ✕ Limpar
-                      </button>
-                    )}
-                  </th>
+                  <th style={{ padding: '10px 16px', textAlign: 'left' }}>Cliente</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'left' }}>Telefone</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'center' }}>Endereços</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'center' }}>Ação</th>
                 </tr>
               </thead>
               <tbody>
