@@ -91,37 +91,6 @@ export default function ClientesPage() {
   }
   const [buscandoCep, setBuscandoCep] = useState<number | null>(null)
   const [cepErro, setCepErro] = useState<Record<number, string>>({})
-  const [calculandoKm, setCalculandoKm] = useState<Record<number, boolean>>({})
-  const [kmErro, setKmErro] = useState<Record<number, string>>({})
-
-  async function calcularDistancia(idx: number, en: EnderecoForm) {
-    if (!en.logradouro || !en.numero || !en.bairro) return
-    setCalculandoKm(prev => ({ ...prev, [idx]: true }))
-    setKmErro(prev => ({ ...prev, [idx]: '' }))
-    try {
-      // Geocodifica destino server-side (4 tentativas em cascata)
-      const geoRes = await fetch('/api/geocodificar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ logradouro: en.logradouro, numero: en.numero, bairro: en.bairro, cidade: en.cidade, uf: en.uf, cep: en.cep }),
-      })
-      const geo = await geoRes.json()
-      if (!geoRes.ok) throw new Error(geo.error || 'Endereço não encontrado')
-
-      const freteRes = await fetch('/api/frete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat_destino: geo.lat, lng_destino: geo.lng, bairro: en.bairro }),
-      })
-      const data = await freteRes.json()
-      if (!freteRes.ok) throw new Error(data.error || 'Erro ao calcular frete')
-      setEnderecos(prev => prev.map((e, i) => i === idx ? { ...e, distancia_km: String(data.distancia_km) } : e))
-    } catch (err) {
-      setKmErro(prev => ({ ...prev, [idx]: err instanceof Error ? err.message : 'Não foi possível calcular — preencha manualmente' }))
-    } finally {
-      setCalculandoKm(prev => ({ ...prev, [idx]: false }))
-    }
-  }
 
   async function buscarCep(idx: number, cep: string) {
     const digits = cep.replace(/\D/g, '')
@@ -136,14 +105,10 @@ export default function ClientesPage() {
       const bairro = data.bairro ?? enderecos[idx].bairro
       const cidade = data.localidade ?? enderecos[idx].cidade ?? ''
       const uf = data.uf ?? enderecos[idx].uf ?? ''
-      const numero = enderecos[idx].numero
       setEnderecos(prev => prev.map((en, i) => i !== idx ? en : {
         ...en, logradouro, bairro, cidade, uf,
         complemento: en.complemento || (data.complemento ?? ''),
       }))
-      if (logradouro && numero && bairro) {
-        calcularDistancia(idx, { ...enderecos[idx], logradouro, bairro, cidade, uf, numero })
-      }
     } catch {
       setCepErro(prev => ({ ...prev, [idx]: 'Erro ao buscar CEP' }))
     } finally {
@@ -664,7 +629,6 @@ export default function ClientesPage() {
                             placeholder="Número *"
                             value={en.numero}
                             onChange={e => updateEndereco(idx, 'numero', e.target.value)}
-                            onBlur={() => { if (en.logradouro && en.numero && en.bairro) calcularDistancia(idx, en) }}
                           />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -681,25 +645,13 @@ export default function ClientesPage() {
                               type="number"
                               step="0.1"
                               min="0"
-                              placeholder={calculandoKm[idx] ? 'Calculando...' : 'Distância em KM (ex: 3.5)'}
+                              placeholder="Distância em KM (ex: 3.5)"
                               value={en.distancia_km}
                               onChange={e => updateEndereco(idx, 'distancia_km', e.target.value)}
-                              disabled={calculandoKm[idx]}
-                              style={{ flex: 1, opacity: calculandoKm[idx] ? 0.6 : 1 }}
+                              style={{ flex: 1 }}
                             />
                             <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>km da loja</span>
-                            {en.logradouro && en.numero && en.bairro && !calculandoKm[idx] && (
-                              <button
-                                type="button"
-                                onClick={() => calcularDistancia(idx, en)}
-                                style={{ fontSize: 11, padding: '5px 8px', borderRadius: 6, border: '1px solid #ccc', background: '#f5f5f5', cursor: 'pointer', whiteSpace: 'nowrap', color: '#555', flexShrink: 0 }}
-                              >
-                                ↻ Calcular
-                              </button>
-                            )}
                           </div>
-                          {calculandoKm[idx] && <p style={{ fontSize: 11, color: '#888', marginTop: 3 }}>Calculando via OSRM...</p>}
-                          {kmErro[idx] && <p style={{ fontSize: 11, color: '#999', marginTop: 3 }}>⚠ {kmErro[idx]}</p>}
                         </div>
                       </div>
                     ))}
