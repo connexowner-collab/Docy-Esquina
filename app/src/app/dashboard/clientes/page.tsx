@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 
 type Endereco = {
   id: number
+  cep?: string | null
   logradouro: string
   numero: string
   complemento: string | null
@@ -167,7 +168,7 @@ export default function ClientesPage() {
     setEnderecos(cliente.enderecos.length > 0
       ? cliente.enderecos.map(e => ({
           id: e.id,
-          cep: '',
+          cep: e.cep ?? '',
           logradouro: e.logradouro,
           numero: e.numero,
           complemento: e.complemento ?? '',

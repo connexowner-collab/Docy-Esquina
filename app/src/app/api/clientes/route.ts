@@ -43,7 +43,16 @@ export async function POST(request: NextRequest) {
   }
 
   if (enderecos && Array.isArray(enderecos) && enderecos.length > 0) {
-    const enderecosMapped = enderecos.map((e: Record<string, unknown>) => ({ ...e, cliente_id: cliente.id }))
+    const enderecosMapped = enderecos.map((e: Record<string, unknown>) => ({
+      cliente_id: cliente.id,
+      cep: e.cep || null,
+      logradouro: e.logradouro,
+      numero: e.numero,
+      complemento: e.complemento || null,
+      bairro: e.bairro,
+      referencia: e.referencia || null,
+      distancia_km: e.distancia_km ? Number(e.distancia_km) : null,
+    }))
     const { error: enderecoError } = await supabase.from('enderecos').insert(enderecosMapped)
     if (enderecoError) return NextResponse.json({ error: enderecoError.message }, { status: 500 })
   }

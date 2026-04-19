@@ -13,8 +13,8 @@ type ItemPedido = { item: ItemCardapio; quantidade: number; observacao?: string 
 type Pagamento = 'dinheiro' | 'pix' | 'debito' | 'credito'
 type PedidoCriado = { id: number; numero_seq: number; total: number; pagamento: string; troco?: number | null; pago?: boolean; clientes: Cliente; itens_pedido: Array<{ nome_snapshot: string; quantidade: number; preco_snapshot: number; observacao?: string | null }> }
 
-type EnderecoForm = { logradouro: string; numero: string; complemento: string; bairro: string; referencia: string; distancia_km: string }
-const emptyEnderecoForm: EnderecoForm = { logradouro: '', numero: '', complemento: '', bairro: '', referencia: '', distancia_km: '' }
+type EnderecoForm = { cep: string; logradouro: string; numero: string; complemento: string; bairro: string; referencia: string; distancia_km: string }
+const emptyEnderecoForm: EnderecoForm = { cep: '', logradouro: '', numero: '', complemento: '', bairro: '', referencia: '', distancia_km: '' }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatTelefone(v: string): string {
@@ -92,6 +92,29 @@ function Etapa1({
   const [enderecos, setEnderecos] = useState<EnderecoForm[]>([{ ...emptyEnderecoForm }])
   const [salvando, setSalvando] = useState(false)
   const [erroForm, setErroForm] = useState('')
+  const [buscandoCep, setBuscandoCep] = useState<number | null>(null)
+  const [cepErro, setCepErro] = useState<Record<number, string>>({})
+
+  async function buscarCep(idx: number, digits: string) {
+    if (digits.length !== 8) return
+    setBuscandoCep(idx)
+    setCepErro(prev => ({ ...prev, [idx]: '' }))
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
+      const data = await res.json()
+      if (data.erro) { setCepErro(prev => ({ ...prev, [idx]: 'CEP não encontrado' })); return }
+      setEnderecos(prev => prev.map((en, i) => i !== idx ? en : {
+        ...en,
+        logradouro: data.logradouro ?? en.logradouro,
+        bairro: data.bairro ?? en.bairro,
+        complemento: en.complemento || (data.complemento ?? ''),
+      }))
+    } catch {
+      setCepErro(prev => ({ ...prev, [idx]: 'Erro ao buscar CEP' }))
+    } finally {
+      setBuscandoCep(null)
+    }
+  }
 
   const buscarCliente = useCallback(async (telefone: string) => {
     setBuscando(true)
@@ -238,6 +261,35 @@ function Etapa1({
                           </button>
                         )}
                       </div>
+
+                      {/* CEP */}
+                      <div style={{ marginBottom: 8 }}>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
+                          CEP <span style={{ fontWeight: 400, color: '#bbb' }}>(opcional)</span>
+                        </label>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <input
+                            className="input"
+                            placeholder="00000-000"
+                            value={en.cep}
+                            maxLength={9}
+                            style={{ width: 140 }}
+                            onChange={e => {
+                              const raw = e.target.value.replace(/\D/g, '').slice(0, 8)
+                              const fmt = raw.length > 5 ? `${raw.slice(0, 5)}-${raw.slice(5)}` : raw
+                              setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, cep: fmt } : x))
+                              setCepErro(prev => ({ ...prev, [idx]: '' }))
+                              if (raw.length === 8) buscarCep(idx, raw)
+                            }}
+                          />
+                          {buscandoCep === idx && <span style={{ fontSize: 11, color: '#888' }}>Buscando...</span>}
+                          {cepErro[idx] && <span style={{ fontSize: 11, color: '#A32D2D' }}>{cepErro[idx]}</span>}
+                          {!buscandoCep && !cepErro[idx] && en.logradouro && en.cep?.replace(/\D/g, '').length === 8 && (
+                            <span style={{ fontSize: 11, color: '#0F6E56' }}>✓ Endereço encontrado</span>
+                          )}
+                        </div>
+                      </div>
+
                       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
                         <input className="input" placeholder="Logradouro *" value={en.logradouro} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, logradouro: e.target.value } : x))} />
                         <input className="input" placeholder="Número *" value={en.numero} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, numero: e.target.value } : x))} />
