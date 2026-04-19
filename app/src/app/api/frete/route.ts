@@ -36,11 +36,27 @@ async function osrmKm(lat1: number, lng1: number, lat2: number, lng2: number): P
 export async function POST(request: NextRequest) {
   const body = await request.json()
 
-  // Aceita: coordenadas diretas OU endereço texto OU KM manual
-  const { lat_destino, lng_destino, endereco_destino, km_manual } = body
+  // Aceita: coordenadas diretas OU endereço texto OU KM manual; opcionalmente bairro para taxa fixa
+  const { lat_destino, lng_destino, endereco_destino, km_manual, bairro } = body
 
   const supabase = await createClient()
-  const { data: config } = await supabase.from('configuracoes').select('*').single()
+  const [{ data: config }, { data: taxaBairroRow }] = await Promise.all([
+    supabase.from('configuracoes').select('*').single(),
+    bairro
+      ? supabase.from('taxas_bairro').select('taxa').eq('bairro', bairro).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+
+  // Taxa fixa por bairro tem prioridade
+  if (taxaBairroRow?.taxa != null) {
+    const distanciaKm = km_manual ? Number(km_manual) : 0
+    return NextResponse.json({
+      distancia_km: distanciaKm,
+      taxa: Number(taxaBairroRow.taxa),
+      fora_cobertura: false,
+      fonte: 'bairro',
+    })
+  }
 
   // Se KM manual informado, calcular taxa direto
   if (km_manual !== undefined && km_manual !== null) {

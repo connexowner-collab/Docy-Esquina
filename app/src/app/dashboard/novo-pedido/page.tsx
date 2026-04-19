@@ -11,7 +11,7 @@ type Categoria = { id: number; nome: string; ordem: number }
 type ItemCardapio = { id: number; categoria_id: number; nome: string; descricao: string | null; preco: number; ativo: boolean; categorias: Categoria }
 type ItemPedido = { item: ItemCardapio; quantidade: number; observacao?: string }
 type Pagamento = 'dinheiro' | 'pix' | 'debito' | 'credito'
-type PedidoCriado = { id: number; numero_seq: number; total: number; pagamento: string; troco?: number | null; clientes: Cliente; itens_pedido: Array<{ nome_snapshot: string; quantidade: number; preco_snapshot: number; observacao?: string | null }> }
+type PedidoCriado = { id: number; numero_seq: number; total: number; pagamento: string; troco?: number | null; pago?: boolean; clientes: Cliente; itens_pedido: Array<{ nome_snapshot: string; quantidade: number; preco_snapshot: number; observacao?: string | null }> }
 
 type EnderecoForm = { logradouro: string; numero: string; complemento: string; bairro: string; referencia: string; distancia_km: string }
 const emptyEnderecoForm: EnderecoForm = { logradouro: '', numero: '', complemento: '', bairro: '', referencia: '', distancia_km: '' }
@@ -284,6 +284,7 @@ function Etapa2({
   cliente: Cliente
   onEnderecoSelecionado: (endereco: Endereco, distanciaKm: number, taxaEntrega: number) => void
 }) {
+  const [retirada, setRetirada] = useState(false)
   const [selecionado, setSelecionado] = useState<number | null>(null)
   const [freteInfo, setFreteInfo] = useState<{ distancia_km: number; taxa: number; fora_cobertura: boolean } | null>(null)
   const [calculando, setCalculando] = useState(false)
@@ -298,11 +299,12 @@ function Etapa2({
     setErroFrete('')
     try {
       // Usa KM manual salvo no endereço se disponível; senão tenta coordenadas
-      const body = end.distancia_km && end.distancia_km > 0
+      const base = end.distancia_km && end.distancia_km > 0
         ? { km_manual: end.distancia_km }
         : end.lat && end.lng
           ? { lat_destino: end.lat, lng_destino: end.lng }
           : null
+      const body = base ? { ...base, bairro: end.bairro } : null
 
       if (!body) {
         setFreteInfo(null)
@@ -327,8 +329,16 @@ function Etapa2({
   }
 
   function selecionarEndereco(end: Endereco) {
+    setRetirada(false)
     setSelecionado(end.id)
     calcularFrete(end)
+  }
+
+  function confirmarRetirada() {
+    onEnderecoSelecionado(
+      { id: 0, logradouro: 'Retirada na Loja', numero: '', complemento: null, bairro: '', referencia: null, lat: null, lng: null, distancia_km: 0 },
+      0, 0
+    )
   }
 
   async function salvarNovoEndereco(e: React.FormEvent) {
@@ -371,7 +381,24 @@ function Etapa2({
         </div>
       </div>
 
-      <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--text-muted)' }}>Selecione o endereço de entrega:</p>
+      {/* Retirada na loja */}
+      <div
+        onClick={() => { setRetirada(true); setSelecionado(null); setFreteInfo(null); setErroFrete('') }}
+        style={{
+          background: retirada ? '#E8F5E9' : '#F5F5F5',
+          border: retirada ? '2px solid #0F6E56' : '0.5px solid var(--border)',
+          borderRadius: 10, padding: '14px 16px', cursor: 'pointer', marginBottom: 16,
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}
+      >
+        <span style={{ fontSize: 22 }}>🏪</span>
+        <div>
+          <p style={{ fontWeight: 700, fontSize: 14, color: '#0F6E56' }}>Retirada na Loja</p>
+          <p style={{ fontSize: 12, color: '#0F6E56' }}>Sem taxa de entrega</p>
+        </div>
+      </div>
+
+      <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--text-muted)' }}>Ou selecione o endereço de entrega:</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 16 }}>
         {enderecos.map(end => (
@@ -415,7 +442,12 @@ function Etapa2({
         </p>
       )}
 
-      {endSelecionado && (
+      {retirada && (
+        <button className="btn-primary" style={{ marginTop: 8, background: '#0F6E56' }} onClick={confirmarRetirada}>
+          Confirmar Retirada &rarr;
+        </button>
+      )}
+      {!retirada && endSelecionado && (
         <button
           className="btn-primary"
           style={{ marginTop: 8 }}
@@ -467,10 +499,12 @@ function Etapa2({
 // ─── Etapa 3 ──────────────────────────────────────────────────────────────────
 function Etapa3({
   cliente,
+  endereco,
   taxaEntrega,
   onContinuar,
 }: {
   cliente: Cliente
+  endereco: Endereco
   taxaEntrega: number
   onContinuar: (itens: ItemPedido[], subtotal: number, total: number, observacoes: string, taxaFinal: number) => void
 }) {
@@ -657,8 +691,29 @@ function Etapa3({
           {erro && <p style={{ color: '#A32D2D', fontSize: 12, marginTop: 10 }}>{erro}</p>}
 
           <button
+            className="btn-outline"
+            style={{ width: '100%', marginTop: 10 }}
+            onClick={() => {
+              if (pedido.length === 0) return
+              imprimirComanda({
+                numero_seq: 0,
+                created_at: new Date().toISOString(),
+                clientes: { nome: cliente.nome, telefone: cliente.telefone },
+                enderecos: { logradouro: endereco.logradouro, numero: endereco.numero, complemento: endereco.complemento, bairro: endereco.bairro, referencia: endereco.referencia },
+                itens_pedido: pedido.map(p => ({ nome_snapshot: p.item.nome, quantidade: p.quantidade, preco_snapshot: Number(p.item.preco), subtotal: Number(p.item.preco) * p.quantidade, observacao: p.observacao ?? null })),
+                subtotal,
+                taxa_entrega: taxaFinal,
+                total,
+                pagamento: '---',
+                observacoes: observacoes || null,
+              })
+            }}
+          >
+            🖨 Pré-visualizar Comanda
+          </button>
+          <button
             className="btn-primary"
-            style={{ width: '100%', marginTop: 14 }}
+            style={{ width: '100%', marginTop: 8 }}
             onClick={handleContinuar}
           >
             Ir para pagamento &rarr;
@@ -692,6 +747,7 @@ function Etapa4({
   onConfirmado: (pedido: PedidoCriado) => void
 }) {
   const [pagamento, setPagamento] = useState<Pagamento>('pix')
+  const [pago, setPago] = useState(false)
   const [valorRecebido, setValorRecebido] = useState('')
   const [confirmando, setConfirmando] = useState(false)
   const [erro, setErro] = useState('')
@@ -730,12 +786,13 @@ function Etapa4({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cliente_id: cliente.id,
-          endereco_id: endereco.id,
+          endereco_id: endereco.id > 0 ? endereco.id : null,
           distancia_km: distanciaKm,
           taxa_entrega: taxaEntrega,
           subtotal,
           total,
           pagamento,
+          pago,
           troco: pagamento === 'dinheiro' ? troco : null,
           observacoes: observacoes || null,
           itens: itensMapped,
@@ -762,7 +819,7 @@ function Etapa4({
     <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 20 }}>
       <div>
         <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: 'var(--text-muted)' }}>Forma de Pagamento</p>
-        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
           {pagamentoPills.map(p => (
             <button
               key={p.key}
@@ -777,6 +834,28 @@ function Etapa4({
               {p.label}
             </button>
           ))}
+        </div>
+
+        {/* Toggle PAGO */}
+        <div
+          onClick={() => setPago(p => !p)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 16, cursor: 'pointer',
+            background: pago ? '#E8F5E9' : '#F5F5F5',
+            border: pago ? '1.5px solid #0F6E56' : '0.5px solid var(--border)',
+            borderRadius: 20, padding: '7px 16px',
+          }}
+        >
+          <div style={{
+            width: 16, height: 16, borderRadius: '50%',
+            background: pago ? '#0F6E56' : '#ccc',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            {pago && <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>✓</span>}
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 700, color: pago ? '#0F6E56' : 'var(--text-muted)' }}>
+            {pago ? 'PAGO ✓' : 'Marcar como PAGO'}
+          </span>
         </div>
 
         {pagamento === 'dinheiro' && (
@@ -884,7 +963,7 @@ function TelaConfirmacao({
       numero_seq: pedido.numero_seq,
       created_at: new Date().toISOString(),
       clientes: { nome: pedido.clientes.nome, telefone: pedido.clientes.telefone },
-      enderecos: { logradouro: endereco.logradouro, numero: endereco.numero, bairro: endereco.bairro, referencia: endereco.referencia },
+      enderecos: { logradouro: endereco.logradouro, numero: endereco.numero, complemento: endereco.complemento ?? null, bairro: endereco.bairro, referencia: endereco.referencia },
       itens_pedido: pedido.itens_pedido.map(it => ({
         nome_snapshot: it.nome_snapshot,
         quantidade: it.quantidade,
@@ -896,6 +975,7 @@ function TelaConfirmacao({
       taxa_entrega: taxaEntrega,
       total: Number(pedido.total),
       pagamento: pedido.pagamento,
+      pago: pedido.pago ?? false,
       troco: pedido.troco ?? null,
       observacoes: observacoes || null,
     })
@@ -969,6 +1049,17 @@ function NovoPedidoContent() {
 
       {!pedidoConfirmado && <Stepper etapa={etapa} />}
 
+      {!pedidoConfirmado && etapa > 1 && (
+        <div style={{ marginBottom: 8 }}>
+          <button
+            onClick={() => setEtapa(etapa - 1)}
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 0' }}
+          >
+            &#8592; Voltar
+          </button>
+        </div>
+      )}
+
       {pedidoConfirmado ? (
         <TelaConfirmacao
           pedido={pedidoConfirmado}
@@ -993,6 +1084,7 @@ function NovoPedidoContent() {
       ) : etapa === 3 && cliente ? (
         <Etapa3
           cliente={cliente}
+          endereco={endereco!}
           taxaEntrega={taxaEntrega}
           onContinuar={(its, sub, tot, obs, taxaFinal) => {
             setItensPedido(its); setSubtotal(sub); setTotal(tot)

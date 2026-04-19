@@ -4,12 +4,13 @@ export type DadosPedido = {
   numero_seq: number
   created_at: string
   clientes: { nome: string; telefone: string }
-  enderecos: { logradouro: string; numero: string; bairro: string; referencia?: string | null }
+  enderecos: { logradouro: string; numero: string; complemento?: string | null; bairro: string; referencia?: string | null }
   itens_pedido: { nome_snapshot: string; quantidade: number; preco_snapshot: number; subtotal: number; observacao?: string | null }[]
   subtotal: number
   taxa_entrega: number
   total: number
   pagamento: string
+  pago?: boolean
   troco?: number | null
   observacoes?: string | null
   nomeEstabelecimento?: string
@@ -90,8 +91,14 @@ function buildComandaHTML(pedido: DadosPedido): string {
     SEP1,
     `CLIENTE: ${pedido.clientes.nome}`,
     `TEL: ${pedido.clientes.telefone}`,
-    `END: ${pedido.enderecos.logradouro}, ${pedido.enderecos.numero}`,
-    `     ${pedido.enderecos.bairro}${pedido.enderecos.referencia ? ' — ' + pedido.enderecos.referencia : ''}`,
+    ...(pedido.enderecos.logradouro === 'Retirada na Loja'
+      ? [`RETIRADA NA LOJA`]
+      : [
+          `END: ${pedido.enderecos.logradouro}, ${pedido.enderecos.numero}`,
+          ...(pedido.enderecos.complemento ? [`     ${pedido.enderecos.complemento}`] : []),
+          `     ${pedido.enderecos.bairro}${pedido.enderecos.referencia ? ' — ' + pedido.enderecos.referencia : ''}`,
+        ]
+    ),
     SEP2,
     pad('QTD', QTD_W) + pad('ITEM', ITEM_W) + pad('TOTAL', TOTAL_W, true),
     SEP2,
@@ -108,7 +115,7 @@ function buildComandaHTML(pedido: DadosPedido): string {
       linha('Troco:', fmtMoeda(pedido.troco)),
     ] : []),
     SEP1,
-    `Pagamento: ${pedido.pagamento.toUpperCase()}`,
+    `Pagamento: ${pedido.pagamento.toUpperCase()}${pedido.pago ? ' - PAGO' : ''}`,
     ...(pedido.observacoes ? [`OBS: ${pedido.observacoes}`] : []),
     SEP1,
     centralizar('Obrigado pela preferencia!'),

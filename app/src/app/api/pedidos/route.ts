@@ -68,12 +68,13 @@ export async function POST(request: NextRequest) {
     subtotal,
     total,
     pagamento,
+    pago,
     troco,
     observacoes,
     itens,
   } = body
 
-  if (!cliente_id || !endereco_id || !subtotal || !total || !pagamento || !itens?.length) {
+  if (!cliente_id || !subtotal || !total || !pagamento || !itens?.length) {
     return NextResponse.json({ error: 'Dados incompletos para criar pedido' }, { status: 400 })
   }
 
@@ -81,13 +82,14 @@ export async function POST(request: NextRequest) {
     .from('pedidos')
     .insert({
       cliente_id,
-      endereco_id,
+      endereco_id: endereco_id ?? null,
       distancia_km: distancia_km ?? 0,
       taxa_entrega: taxa_entrega ?? 0,
       taxa_manual: taxa_manual ?? null,
       subtotal,
       total,
       pagamento,
+      pago: pago ?? false,
       troco: troco ?? null,
       observacoes: observacoes ?? null,
     })

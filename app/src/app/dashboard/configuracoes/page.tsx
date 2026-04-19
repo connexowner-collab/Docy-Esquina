@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PrintConfig from '@/components/PrintConfig'
+
+type TaxaBairro = { id: number; bairro: string; taxa: number }
 
 type Configuracao = {
   nome_estabelecimento: string
@@ -33,13 +35,48 @@ export default function ConfiguracoesPage() {
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [sliderKm, setSliderKm] = useState(8)
+  const [taxasBairro, setTaxasBairro] = useState<TaxaBairro[]>([])
+  const [bairrosDisponiveis, setBairrosDisponiveis] = useState<string[]>([])
+  const [novoBairro, setNovoBairro] = useState('')
+  const [novaTaxa, setNovaTaxa] = useState('')
+  const [salvandoTaxa, setSalvandoTaxa] = useState(false)
+
+  const fetchTaxasBairro = useCallback(async () => {
+    const res = await fetch('/api/taxas-bairro')
+    const data = await res.json()
+    setTaxasBairro(Array.isArray(data) ? data : [])
+  }, [])
 
   useEffect(() => {
     supabase.from('configuracoes').select('*').single().then(({ data }) => {
       if (data) setForm(data)
       setLoading(false)
     })
-  }, [])
+    fetchTaxasBairro()
+    supabase.from('enderecos').select('bairro').then(({ data }) => {
+      const uniq = [...new Set((data ?? []).map((e: { bairro: string }) => e.bairro).filter(Boolean))].sort() as string[]
+      setBairrosDisponiveis(uniq)
+    })
+  }, [fetchTaxasBairro])
+
+  async function handleAddTaxa() {
+    if (!novoBairro || !novaTaxa) return
+    setSalvandoTaxa(true)
+    await fetch('/api/taxas-bairro', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bairro: novoBairro, taxa: parseFloat(novaTaxa) }),
+    })
+    setNovoBairro('')
+    setNovaTaxa('')
+    await fetchTaxasBairro()
+    setSalvandoTaxa(false)
+  }
+
+  async function handleDeleteTaxa(bairro: string) {
+    await fetch(`/api/taxas-bairro?bairro=${encodeURIComponent(bairro)}`, { method: 'DELETE' })
+    await fetchTaxasBairro()
+  }
 
   function handle(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target
@@ -162,6 +199,73 @@ export default function ConfiguracoesPage() {
                   desc="Limite de cobertura logística"
                   highlight
                 />
+              </div>
+
+              {/* Taxas fixas por bairro */}
+              <div style={{ marginTop: 24, borderTop: '1.5px solid #f0f0f0', paddingTop: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.6, color: '#888', textTransform: 'uppercase', marginBottom: 14 }}>
+                  Taxas Fixas por Bairro
+                </div>
+
+                {/* Form adicionar */}
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 160 }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#888', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Bairro</label>
+                    <select
+                      value={novoBairro}
+                      onChange={e => setNovoBairro(e.target.value)}
+                      style={{ width: '100%', border: '1.5px solid #e8e8ee', borderRadius: 10, padding: '10px 12px', fontSize: 14, color: '#1a1a1a', outline: 'none', background: '#fff', boxSizing: 'border-box' }}
+                    >
+                      <option value="">Selecionar bairro...</option>
+                      {bairrosDisponiveis.map(b => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ width: 130 }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#888', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Taxa Fixa (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={novaTaxa}
+                      onChange={e => setNovaTaxa(e.target.value)}
+                      placeholder="0,00"
+                      style={{ width: '100%', border: '1.5px solid #e8e8ee', borderRadius: 10, padding: '10px 12px', fontSize: 14, color: '#1a1a1a', outline: 'none', background: '#fff', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddTaxa}
+                    disabled={!novoBairro || !novaTaxa || salvandoTaxa}
+                    style={{ background: '#C0392B', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: !novoBairro || !novaTaxa ? 'not-allowed' : 'pointer', opacity: !novoBairro || !novaTaxa ? 0.5 : 1, whiteSpace: 'nowrap' }}
+                  >
+                    {salvandoTaxa ? '...' : '+ Adicionar'}
+                  </button>
+                </div>
+
+                {/* Lista existente */}
+                {taxasBairro.length === 0 ? (
+                  <p style={{ fontSize: 12, color: '#aaa', textAlign: 'center', padding: '12px 0' }}>Nenhuma taxa fixa configurada</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {taxasBairro.map(t => (
+                      <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fafafa', border: '1.5px solid #f0f0f0', borderRadius: 10, padding: '10px 14px' }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{t.bairro}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: '#2563EB' }}>R$ {Number(t.taxa).toFixed(2).replace('.', ',')}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTaxa(t.bairro)}
+                            style={{ background: 'none', border: 'none', color: '#A32D2D', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '0 4px' }}
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
