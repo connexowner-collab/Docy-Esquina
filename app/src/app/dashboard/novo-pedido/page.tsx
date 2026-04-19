@@ -106,7 +106,10 @@ function Etapa1({
       const res = await fetch('/api/frete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endereco_destino: partes.join(', ') }),
+        body: JSON.stringify({
+          endereco_destino: partes.join(', '),
+          cep_destino: en.cep || undefined,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro')
@@ -418,7 +421,10 @@ function Etapa2({
       const res = await fetch('/api/frete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endereco_destino: partes.join(', ') }),
+        body: JSON.stringify({
+          endereco_destino: partes.join(', '),
+          cep_destino: form.cep || undefined,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro')

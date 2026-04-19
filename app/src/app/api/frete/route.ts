@@ -33,11 +33,22 @@ async function osrmKm(lat1: number, lng1: number, lat2: number, lng2: number): P
   return null
 }
 
+async function geocodificarCep(cep: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const digits = cep.replace(/\D/g, '')
+    const url = `https://nominatim.openstreetmap.org/search?postalcode=${digits}&countrycodes=br&format=json&limit=1`
+    const res = await fetch(url, { headers: { 'User-Agent': 'DoxyEsquina/1.0' }, signal: AbortSignal.timeout(6000) })
+    const data = await res.json()
+    if (data?.[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+  } catch {}
+  return null
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json()
 
   // Aceita: coordenadas diretas OU endereço texto OU KM manual; opcionalmente bairro para taxa fixa
-  const { lat_destino, lng_destino, endereco_destino, km_manual, bairro } = body
+  const { lat_destino, lng_destino, endereco_destino, cep_destino, km_manual, bairro } = body
 
   const supabase = await createClient()
   const [{ data: config }, { data: taxaBairroRow }] = await Promise.all([
@@ -88,9 +99,16 @@ export async function POST(request: NextRequest) {
   let latDest = lat_destino
   let lngDest = lng_destino
 
-  if ((!latDest || !lngDest) && endereco_destino) {
-    const geo = await geocodificar(endereco_destino)
-    if (geo) { latDest = geo.lat; lngDest = geo.lng }
+  if (!latDest || !lngDest) {
+    if (endereco_destino) {
+      const geo = await geocodificar(endereco_destino)
+      if (geo) { latDest = geo.lat; lngDest = geo.lng }
+    }
+    // Fallback: geocodifica pelo CEP se endereço completo não foi encontrado
+    if ((!latDest || !lngDest) && cep_destino) {
+      const geo = await geocodificarCep(cep_destino)
+      if (geo) { latDest = geo.lat; lngDest = geo.lng }
+    }
   }
 
   if (!latDest || !lngDest) {
