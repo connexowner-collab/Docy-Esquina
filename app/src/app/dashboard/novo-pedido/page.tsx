@@ -13,8 +13,8 @@ type ItemPedido = { item: ItemCardapio; quantidade: number; observacao?: string 
 type Pagamento = 'dinheiro' | 'pix' | 'debito' | 'credito'
 type PedidoCriado = { id: number; numero_seq: number; total: number; pagamento: string; troco?: number | null; pago?: boolean; clientes: Cliente; itens_pedido: Array<{ nome_snapshot: string; quantidade: number; preco_snapshot: number; observacao?: string | null }> }
 
-type EnderecoForm = { cep: string; logradouro: string; numero: string; complemento: string; bairro: string; referencia: string; distancia_km: string }
-const emptyEnderecoForm: EnderecoForm = { cep: '', logradouro: '', numero: '', complemento: '', bairro: '', referencia: '', distancia_km: '' }
+type EnderecoForm = { cep: string; logradouro: string; numero: string; complemento: string; bairro: string; cidade: string; referencia: string; distancia_km: string }
+const emptyEnderecoForm: EnderecoForm = { cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', referencia: '', distancia_km: '' }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatTelefone(v: string): string {
@@ -94,6 +94,29 @@ function Etapa1({
   const [erroForm, setErroForm] = useState('')
   const [buscandoCep, setBuscandoCep] = useState<number | null>(null)
   const [cepErro, setCepErro] = useState<Record<number, string>>({})
+  const [calculandoKm, setCalculandoKm] = useState<Record<number, boolean>>({})
+  const [kmErro, setKmErro] = useState<Record<number, string>>({})
+
+  async function calcularDistancia(idx: number, en: EnderecoForm) {
+    if (!en.logradouro || !en.numero || !en.bairro) return
+    const partes = [en.logradouro, en.numero, en.bairro, en.cidade].filter(Boolean)
+    setCalculandoKm(prev => ({ ...prev, [idx]: true }))
+    setKmErro(prev => ({ ...prev, [idx]: '' }))
+    try {
+      const res = await fetch('/api/frete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endereco_destino: partes.join(', ') }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erro')
+      setEnderecos(prev => prev.map((e, i) => i === idx ? { ...e, distancia_km: String(data.distancia_km) } : e))
+    } catch {
+      setKmErro(prev => ({ ...prev, [idx]: 'Não foi possível calcular — preencha manualmente' }))
+    } finally {
+      setCalculandoKm(prev => ({ ...prev, [idx]: false }))
+    }
+  }
 
   async function buscarCep(idx: number, digits: string) {
     if (digits.length !== 8) return
@@ -103,12 +126,17 @@ function Etapa1({
       const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
       const data = await res.json()
       if (data.erro) { setCepErro(prev => ({ ...prev, [idx]: 'CEP não encontrado' })); return }
+      const logradouro = data.logradouro ?? enderecos[idx].logradouro
+      const bairro = data.bairro ?? enderecos[idx].bairro
+      const cidade = data.localidade ?? enderecos[idx].cidade ?? ''
+      const numero = enderecos[idx].numero
       setEnderecos(prev => prev.map((en, i) => i !== idx ? en : {
-        ...en,
-        logradouro: data.logradouro ?? en.logradouro,
-        bairro: data.bairro ?? en.bairro,
+        ...en, logradouro, bairro, cidade,
         complemento: en.complemento || (data.complemento ?? ''),
       }))
+      if (logradouro && numero && bairro) {
+        calcularDistancia(idx, { ...enderecos[idx], logradouro, bairro, cidade, numero })
+      }
     } catch {
       setCepErro(prev => ({ ...prev, [idx]: 'Erro ao buscar CEP' }))
     } finally {
@@ -292,25 +320,45 @@ function Etapa1({
 
                       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
                         <input className="input" placeholder="Logradouro *" value={en.logradouro} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, logradouro: e.target.value } : x))} />
-                        <input className="input" placeholder="Número *" value={en.numero} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, numero: e.target.value } : x))} />
+                        <input
+                          className="input"
+                          placeholder="Número *"
+                          value={en.numero}
+                          onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, numero: e.target.value } : x))}
+                          onBlur={() => { if (en.logradouro && en.numero && en.bairro) calcularDistancia(idx, en) }}
+                        />
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
                         <input className="input" placeholder="Bairro *" value={en.bairro} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, bairro: e.target.value } : x))} />
                         <input className="input" placeholder="Complemento" value={en.complemento} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, complemento: e.target.value } : x))} />
                       </div>
                       <input className="input" placeholder="Referência" value={en.referencia} onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, referencia: e.target.value } : x))} />
-                      <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <input
-                          className="input"
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          placeholder="Distância em KM (ex: 3.5)"
-                          value={en.distancia_km}
-                          onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, distancia_km: e.target.value } : x))}
-                          style={{ flex: 1 }}
-                        />
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>km da loja</span>
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input
+                            className="input"
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            placeholder={calculandoKm[idx] ? 'Calculando...' : 'Distância em KM (ex: 3.5)'}
+                            value={en.distancia_km}
+                            onChange={e => setEnderecos(prev => prev.map((x, i) => i === idx ? { ...x, distancia_km: e.target.value } : x))}
+                            disabled={calculandoKm[idx]}
+                            style={{ flex: 1, opacity: calculandoKm[idx] ? 0.6 : 1 }}
+                          />
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>km da loja</span>
+                          {en.logradouro && en.numero && en.bairro && !calculandoKm[idx] && (
+                            <button
+                              type="button"
+                              onClick={() => calcularDistancia(idx, en)}
+                              style={{ fontSize: 11, padding: '5px 8px', borderRadius: 6, border: '1px solid #ccc', background: '#f5f5f5', cursor: 'pointer', whiteSpace: 'nowrap', color: '#555', flexShrink: 0 }}
+                            >
+                              ↻ Calcular
+                            </button>
+                          )}
+                        </div>
+                        {calculandoKm[idx] && <p style={{ fontSize: 11, color: '#888', marginTop: 3 }}>Calculando via OSRM...</p>}
+                        {kmErro[idx] && <p style={{ fontSize: 11, color: '#999', marginTop: 3 }}>⚠ {kmErro[idx]}</p>}
                       </div>
                     </div>
                   ))}
@@ -356,6 +404,57 @@ function Etapa2({
   const [novoEndForm, setNovoEndForm] = useState({ ...emptyEnderecoForm })
   const [salvandoEnd, setSalvandoEnd] = useState(false)
   const [enderecos, setEnderecos] = useState<Endereco[]>(cliente.enderecos)
+  const [buscandoCepNovo, setBuscandoCepNovo] = useState(false)
+  const [cepErroNovo, setCepErroNovo] = useState('')
+  const [calculandoKmNovo, setCalculandoKmNovo] = useState(false)
+  const [kmErroNovo, setKmErroNovo] = useState('')
+
+  async function calcularDistanciaNovo(form: EnderecoForm) {
+    if (!form.logradouro || !form.numero || !form.bairro) return
+    const partes = [form.logradouro, form.numero, form.bairro, form.cidade].filter(Boolean)
+    setCalculandoKmNovo(true)
+    setKmErroNovo('')
+    try {
+      const res = await fetch('/api/frete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endereco_destino: partes.join(', ') }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erro')
+      setNovoEndForm(p => ({ ...p, distancia_km: String(data.distancia_km) }))
+    } catch {
+      setKmErroNovo('Não foi possível calcular — preencha manualmente')
+    } finally {
+      setCalculandoKmNovo(false)
+    }
+  }
+
+  async function buscarCepNovo(cep: string) {
+    const digits = cep.replace(/\D/g, '')
+    if (digits.length !== 8) return
+    setBuscandoCepNovo(true)
+    setCepErroNovo('')
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
+      const data = await res.json()
+      if (data.erro) { setCepErroNovo('CEP não encontrado'); return }
+      const logradouro = data.logradouro ?? novoEndForm.logradouro
+      const bairro = data.bairro ?? novoEndForm.bairro
+      const cidade = data.localidade ?? ''
+      setNovoEndForm(p => ({
+        ...p, logradouro, bairro, cidade,
+        complemento: p.complemento || (data.complemento ?? ''),
+      }))
+      if (logradouro && novoEndForm.numero && bairro) {
+        calcularDistanciaNovo({ ...novoEndForm, logradouro, bairro, cidade })
+      }
+    } catch {
+      setCepErroNovo('Erro ao buscar CEP')
+    } finally {
+      setBuscandoCepNovo(false)
+    }
+  }
 
   async function calcularFrete(end: Endereco) {
     setCalculando(true)
@@ -526,25 +625,70 @@ function Etapa2({
             <h3 style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>Novo Endereço</h3>
             <form onSubmit={salvarNovoEndereco}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {/* CEP */}
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
+                    CEP <span style={{ fontWeight: 400, color: '#bbb' }}>(opcional — preenche e calcula distância)</span>
+                  </label>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      className="input"
+                      placeholder="00000-000"
+                      value={novoEndForm.cep}
+                      maxLength={9}
+                      style={{ width: 140 }}
+                      onChange={e => {
+                        const raw = e.target.value.replace(/\D/g, '').slice(0, 8)
+                        const fmt = raw.length > 5 ? `${raw.slice(0, 5)}-${raw.slice(5)}` : raw
+                        setNovoEndForm(p => ({ ...p, cep: fmt }))
+                        setCepErroNovo('')
+                        if (raw.length === 8) buscarCepNovo(fmt)
+                      }}
+                    />
+                    {buscandoCepNovo && <span style={{ fontSize: 11, color: '#888' }}>Buscando...</span>}
+                    {cepErroNovo && <span style={{ fontSize: 11, color: '#A32D2D' }}>{cepErroNovo}</span>}
+                  </div>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
                   <input className="input" placeholder="Logradouro *" value={novoEndForm.logradouro} onChange={e => setNovoEndForm(p => ({ ...p, logradouro: e.target.value }))} required />
-                  <input className="input" placeholder="Número *" value={novoEndForm.numero} onChange={e => setNovoEndForm(p => ({ ...p, numero: e.target.value }))} required />
+                  <input
+                    className="input"
+                    placeholder="Número *"
+                    value={novoEndForm.numero}
+                    onChange={e => setNovoEndForm(p => ({ ...p, numero: e.target.value }))}
+                    onBlur={() => { if (novoEndForm.logradouro && novoEndForm.numero && novoEndForm.bairro) calcularDistanciaNovo(novoEndForm) }}
+                    required
+                  />
                 </div>
                 <input className="input" placeholder="Bairro *" value={novoEndForm.bairro} onChange={e => setNovoEndForm(p => ({ ...p, bairro: e.target.value }))} required />
                 <input className="input" placeholder="Complemento" value={novoEndForm.complemento} onChange={e => setNovoEndForm(p => ({ ...p, complemento: e.target.value }))} />
                 <input className="input" placeholder="Referência" value={novoEndForm.referencia} onChange={e => setNovoEndForm(p => ({ ...p, referencia: e.target.value }))} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    className="input"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    placeholder="Distância em KM (ex: 3.5)"
-                    value={novoEndForm.distancia_km}
-                    onChange={e => setNovoEndForm(p => ({ ...p, distancia_km: e.target.value }))}
-                    style={{ flex: 1 }}
-                  />
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>km da loja</span>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      className="input"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      placeholder={calculandoKmNovo ? 'Calculando...' : 'Distância em KM (ex: 3.5)'}
+                      value={novoEndForm.distancia_km}
+                      onChange={e => setNovoEndForm(p => ({ ...p, distancia_km: e.target.value }))}
+                      disabled={calculandoKmNovo}
+                      style={{ flex: 1, opacity: calculandoKmNovo ? 0.6 : 1 }}
+                    />
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>km da loja</span>
+                    {novoEndForm.logradouro && novoEndForm.numero && novoEndForm.bairro && !calculandoKmNovo && (
+                      <button
+                        type="button"
+                        onClick={() => calcularDistanciaNovo(novoEndForm)}
+                        style={{ fontSize: 11, padding: '5px 8px', borderRadius: 6, border: '1px solid #ccc', background: '#f5f5f5', cursor: 'pointer', whiteSpace: 'nowrap', color: '#555', flexShrink: 0 }}
+                      >
+                        ↻ Calcular
+                      </button>
+                    )}
+                  </div>
+                  {calculandoKmNovo && <p style={{ fontSize: 11, color: '#888', marginTop: 3 }}>Calculando via OSRM...</p>}
+                  {kmErroNovo && <p style={{ fontSize: 11, color: '#999', marginTop: 3 }}>⚠ {kmErroNovo}</p>}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
