@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
   const { searchParams } = new URL(request.url)
+  const nome = searchParams.get('nome')
   const telefone = searchParams.get('telefone')
 
   let query = supabase
@@ -11,10 +12,8 @@ export async function GET(request: NextRequest) {
     .select('*, enderecos(*)')
     .order('nome', { ascending: true })
 
-  if (telefone) {
-    const clean = telefone.replace(/\D/g, '')
-    query = query.or(`telefone.ilike.%${clean}%,nome.ilike.%${telefone}%`)
-  }
+  if (nome) query = query.ilike('nome', `%${nome}%`)
+  if (telefone) query = query.ilike('telefone', `%${telefone.replace(/\D/g, '')}%`)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -52,7 +52,12 @@ const PAGE_SIZE = 20
 export default function ClientesPage() {
   const router = useRouter()
   const [clientes, setClientes] = useState<Cliente[]>([])
-  const [busca, setBusca] = useState('')
+  const [filtroNome, setFiltroNome] = useState('')
+  const [filtroTel, setFiltroTel] = useState('')
+  const [sugestoesNome, setSugestoesNome] = useState<string[]>([])
+  const [sugestoesTel, setSugestoesTel] = useState<string[]>([])
+  const [showSugNome, setShowSugNome] = useState(false)
+  const [showSugTel, setShowSugTel] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selecionado, setSelecionado] = useState<Cliente | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -62,24 +67,65 @@ export default function ClientesPage() {
   const [saving, setSaving] = useState(false)
   const [clientePage, setClientePage] = useState(1)
   const [formError, setFormError] = useState('')
-  const buscaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const todosClientes = useRef<Cliente[]>([])
 
-  const fetchClientes = useCallback(async (q: string) => {
+  const fetchClientes = useCallback(async (nome: string, tel: string) => {
     setLoading(true)
-    const url = q ? `/api/clientes?telefone=${encodeURIComponent(q)}` : '/api/clientes'
-    const res = await fetch(url)
+    const params = new URLSearchParams()
+    if (nome) params.set('nome', nome)
+    if (tel) params.set('telefone', tel)
+    const res = await fetch(`/api/clientes?${params}`)
     const data = await res.json()
-    setClientes(Array.isArray(data) ? data : [])
+    const lista = Array.isArray(data) ? data : []
+    setClientes(lista)
+    if (!nome && !tel) todosClientes.current = lista
     setLoading(false)
   }, [])
 
-  useEffect(() => { fetchClientes('') }, [fetchClientes])
+  useEffect(() => { fetchClientes('', '') }, [fetchClientes])
 
-  function handleBusca(v: string) {
-    setBusca(v)
+  function handleFiltroNome(v: string) {
+    setFiltroNome(v)
     setClientePage(1)
-    if (buscaTimer.current) clearTimeout(buscaTimer.current)
-    buscaTimer.current = setTimeout(() => fetchClientes(v), 400)
+    const sug = v.length >= 1
+      ? [...new Set(todosClientes.current.map(c => c.nome).filter(n => n.toLowerCase().includes(v.toLowerCase())))].slice(0, 8)
+      : []
+    setSugestoesNome(sug)
+    setShowSugNome(sug.length > 0)
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => fetchClientes(v, filtroTel), 350)
+  }
+
+  function handleFiltroTel(v: string) {
+    setFiltroTel(v)
+    setClientePage(1)
+    const digits = v.replace(/\D/g, '')
+    const sug = digits.length >= 2
+      ? [...new Set(todosClientes.current.map(c => c.telefone).filter(t => t.includes(digits)))].slice(0, 8).map(t => formatTelefone(t))
+      : []
+    setSugestoesTel(sug)
+    setShowSugTel(sug.length > 0)
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => fetchClientes(filtroNome, v), 350)
+  }
+
+  function aplicarSugestaoNome(nome: string) {
+    setFiltroNome(nome)
+    setShowSugNome(false)
+    fetchClientes(nome, filtroTel)
+  }
+
+  function aplicarSugestaoTel(tel: string) {
+    setFiltroTel(tel)
+    setShowSugTel(false)
+    fetchClientes(filtroNome, tel)
+  }
+
+  function limparFiltros() {
+    setFiltroNome(''); setFiltroTel('')
+    setShowSugNome(false); setShowSugTel(false)
+    fetchClientes('', '')
   }
 
   function openNovoCliente() {
@@ -211,31 +257,76 @@ export default function ClientesPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
         {/* Painel esquerdo */}
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '14px 16px', borderBottom: '0.5px solid var(--border)' }}>
-            <input
-              className="input"
-              value={busca}
-              onChange={e => handleBusca(e.target.value)}
-              placeholder="Buscar por nome ou telefone..."
-            />
-          </div>
           {loading ? (
             <p style={{ padding: 24, color: 'var(--text-muted)', textAlign: 'center' }}>Buscando...</p>
-          ) : clientes.length === 0 ? (
-            <p style={{ padding: 24, color: 'var(--text-muted)', textAlign: 'center' }}>
-              {busca ? 'Nenhum cliente encontrado.' : 'Nenhum cliente cadastrado ainda.'}
-            </p>
+          ) : clientes.length === 0 && !filtroNome && !filtroTel ? (
+            <p style={{ padding: 24, color: 'var(--text-muted)', textAlign: 'center' }}>Nenhum cliente cadastrado ainda.</p>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr className="table-header">
-                  <th style={{ padding: '10px 16px', textAlign: 'left' }}>Cliente</th>
-                  <th style={{ padding: '10px 16px', textAlign: 'left' }}>Telefone</th>
-                  <th style={{ padding: '10px 16px', textAlign: 'center' }}>Endereços</th>
-                  <th style={{ padding: '10px 16px', textAlign: 'center' }}>Ação</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'left' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Cliente</div>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        value={filtroNome}
+                        onChange={e => handleFiltroNome(e.target.value)}
+                        onFocus={() => sugestoesNome.length > 0 && setShowSugNome(true)}
+                        onBlur={() => setTimeout(() => setShowSugNome(false), 150)}
+                        placeholder="Buscar nome..."
+                        style={{ width: '100%', padding: '6px 10px', fontSize: 12, borderRadius: 8, border: '1px solid #ddd', outline: 'none', fontWeight: 400, boxSizing: 'border-box' }}
+                      />
+                      {showSugNome && (
+                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 100, maxHeight: 200, overflowY: 'auto' }}>
+                          {sugestoesNome.map(s => (
+                            <div key={s} onMouseDown={() => aplicarSugestaoNome(s)} style={{ padding: '8px 12px', fontSize: 12, cursor: 'pointer', borderBottom: '0.5px solid #f0f0f0' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                              onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+                            >{s}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </th>
+                  <th style={{ padding: '10px 16px', textAlign: 'left' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Telefone</div>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        value={filtroTel}
+                        onChange={e => handleFiltroTel(e.target.value)}
+                        onFocus={() => sugestoesTel.length > 0 && setShowSugTel(true)}
+                        onBlur={() => setTimeout(() => setShowSugTel(false), 150)}
+                        placeholder="Buscar telefone..."
+                        style={{ width: '100%', padding: '6px 10px', fontSize: 12, borderRadius: 8, border: '1px solid #ddd', outline: 'none', fontWeight: 400, boxSizing: 'border-box' }}
+                      />
+                      {showSugTel && (
+                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 100, maxHeight: 200, overflowY: 'auto' }}>
+                          {sugestoesTel.map(s => (
+                            <div key={s} onMouseDown={() => aplicarSugestaoTel(s)} style={{ padding: '8px 12px', fontSize: 12, cursor: 'pointer', borderBottom: '0.5px solid #f0f0f0' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                              onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+                            >{s}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </th>
+                  <th style={{ padding: '10px 16px', textAlign: 'center', verticalAlign: 'bottom' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Endereços</div>
+                  </th>
+                  <th style={{ padding: '10px 16px', textAlign: 'center', verticalAlign: 'bottom' }}>
+                    {(filtroNome || filtroTel) && (
+                      <button onClick={limparFiltros} style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, border: '1px solid #ddd', background: '#f5f5f5', cursor: 'pointer', color: '#666', whiteSpace: 'nowrap' }}>
+                        ✕ Limpar
+                      </button>
+                    )}
+                  </th>
                 </tr>
               </thead>
               <tbody>
+                {clientes.length === 0 && (
+                  <tr><td colSpan={4} style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Nenhum cliente encontrado para os filtros aplicados.</td></tr>
+                )}
                 {clientes.slice((clientePage - 1) * PAGE_SIZE, clientePage * PAGE_SIZE).map(cliente => {
                   const selected = selecionado?.id === cliente.id
                   return (
