@@ -40,6 +40,31 @@ function fmtTempo(iso: string) {
   return `${Math.floor(diff/60)}h ${diff%60}min`
 }
 
+async function imprimir(pedido: Pedido) {
+  const { imprimirComanda } = await import('@/lib/print/printService')
+  imprimirComanda({
+    numero_seq: pedido.numero_seq,
+    created_at: pedido.created_at,
+    clientes: pedido.clientes,
+    enderecos: pedido.tipo_entrega === 'retirada'
+      ? { logradouro: 'Retirada na Loja', numero: '', bairro: '' }
+      : (pedido.enderecos ?? { logradouro: '', numero: '', bairro: '' }),
+    itens_pedido: pedido.itens_pedido.map(i => ({
+      nome_snapshot: i.nome_snapshot,
+      quantidade: i.quantidade,
+      preco_snapshot: i.preco_snapshot,
+      subtotal: i.preco_snapshot * i.quantidade,
+      observacao: i.observacao_item,
+    })),
+    subtotal: pedido.subtotal,
+    taxa_entrega: pedido.taxa_entrega,
+    total: pedido.total,
+    pagamento: pedido.pagamento,
+    troco: pedido.troco,
+    observacoes: pedido.observacoes,
+  })
+}
+
 export default function PedidosOnlinePage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,6 +73,9 @@ export default function PedidosOnlinePage() {
   const [motivoRecusa, setMotivoRecusa] = useState('')
   const [processando, setProcessando] = useState<number | null>(null)
   const [tempoAtual, setTempoAtual] = useState(Date.now())
+  const [ocultarEntregues, setOcultarEntregues] = useState(true)
+  const [lojaAberta, setLojaAberta] = useState<boolean | null>(null)
+  const [togglingLoja, setTogglingLoja] = useState(false)
 
   const carregarPedidos = useCallback(async () => {
     const supabase = createClient()
@@ -70,40 +98,47 @@ export default function PedidosOnlinePage() {
   }, [])
 
   useEffect(() => {
+    const supabase = createClient()
+    supabase.from('configuracoes').select('pwa_ativo').single().then(({ data }) => {
+      if (data) setLojaAberta(data.pwa_ativo ?? true)
+    })
+  }, [])
+
+  async function toggleLoja() {
+    if (lojaAberta === null) return
+    setTogglingLoja(true)
+    const novoValor = !lojaAberta
+    const supabase = createClient()
+    await supabase.from('configuracoes').update({ pwa_ativo: novoValor }).eq('id', 1)
+    setLojaAberta(novoValor)
+    setTogglingLoja(false)
+  }
+
+  useEffect(() => {
     carregarPedidos()
 
-    // Realtime — novos pedidos chegando
     const supabase = createClient()
     const channel = supabase
       .channel('portal-pedidos-online')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'pedidos',
-        filter: 'origem=eq.pwa',
-      }, () => carregarPedidos())
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'pedidos',
-        filter: 'origem=eq.pwa',
-      }, () => carregarPedidos())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pedidos', filter: 'origem=eq.pwa' }, () => carregarPedidos())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pedidos', filter: 'origem=eq.pwa' }, () => carregarPedidos())
       .subscribe()
 
     const timer = setInterval(() => setTempoAtual(Date.now()), 30000)
     return () => { supabase.removeChannel(channel); clearInterval(timer) }
   }, [carregarPedidos])
 
-  // Separar por aba
   const aguardando = pedidos.filter(p => p.status_validacao === 'pendente')
-  const aceitos = pedidos.filter(p => p.status_validacao === 'aceito')
-  const recusados = pedidos.filter(p => p.status_validacao === 'recusado')
+  const aceitos    = pedidos.filter(p => p.status_validacao === 'aceito')
+  const recusados  = pedidos.filter(p => p.status_validacao === 'recusado')
+
+  const entreguesOcultos = ocultarEntregues ? aceitos.filter(p => p.status_pedido === 'entregue').length : 0
+  const aceitosVisiveis  = ocultarEntregues ? aceitos.filter(p => p.status_pedido !== 'entregue') : aceitos
 
   async function aceitar(id: number) {
     setProcessando(id)
     await fetch(`/api/pedidos-online/${id}/validacao`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ acao: 'aceitar' }),
     })
     setProcessando(null)
@@ -114,8 +149,7 @@ export default function PedidosOnlinePage() {
     if (!modalRecusa) return
     setProcessando(modalRecusa.id)
     await fetch(`/api/pedidos-online/${modalRecusa.id}/validacao`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ acao: 'recusar', motivoRecusa }),
     })
     setProcessando(null)
@@ -127,13 +161,15 @@ export default function PedidosOnlinePage() {
   async function avancarStatus(id: number, novoStatus: 'em_entrega' | 'entregue') {
     setProcessando(id)
     await fetch(`/api/pedidos-online/${id}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: novoStatus }),
     })
     setProcessando(null)
     await carregarPedidos()
   }
+
+  // Supress unused warning
+  void tempoAtual
 
   function CardPedido({ pedido, modo }: { pedido: Pedido; modo: 'aguardando' | 'aceito' | 'recusado' }) {
     return (
@@ -215,6 +251,12 @@ export default function PedidosOnlinePage() {
               {processando === pedido.id ? '...' : '✓ Aceitar pedido'}
             </button>
             <button
+              onClick={() => imprimir(pedido)}
+              style={{ padding: '10px 14px', background: '#F5F3EF', border: '1px solid #E0DDD5', borderRadius: 8, color: '#555', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+              title="Imprimir comanda">
+              🖨️
+            </button>
+            <button
               onClick={() => setModalRecusa({ id: pedido.id, numero: pedido.numero_seq })}
               style={{ flex: 1, padding: '10px', background: '#FCEBEB', border: '1px solid #F09595', borderRadius: 8, color: '#B33A3A', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
               ✕ Recusar
@@ -253,6 +295,12 @@ export default function PedidosOnlinePage() {
                 {pedido.tipo_entrega === 'retirada' ? '✓ Retirado' : '✓ Entregue'}
               </span>
             )}
+            <button
+              onClick={() => imprimir(pedido)}
+              style={{ padding: '10px 14px', background: '#F5F3EF', border: '1px solid #E0DDD5', borderRadius: 8, color: '#555', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+              title="Imprimir comanda">
+              🖨️
+            </button>
           </div>
         )}
       </div>
@@ -261,22 +309,51 @@ export default function PedidosOnlinePage() {
 
   const abas: { key: Aba; label: string; count: number }[] = [
     { key: 'aguardando', label: 'Aguardando', count: aguardando.length },
-    { key: 'aceitos', label: 'Aceitos hoje', count: aceitos.length },
-    { key: 'recusados', label: 'Recusados', count: recusados.length },
+    { key: 'aceitos',    label: 'Aceitos hoje', count: aceitos.length },
+    { key: 'recusados',  label: 'Recusados', count: recusados.length },
   ]
 
-  const itensDaAba = { aguardando, aceitos, recusados }[abaAtiva] as Pedido[]
+  const itensDaAba = abaAtiva === 'aguardando' ? aguardando : abaAtiva === 'aceitos' ? aceitosVisiveis : recusados
 
   return (
     <div style={{ padding: 24, maxWidth: 720, margin: '0 auto' }}>
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#2C2C2A' }}>Pedidos Online</h1>
-          {aguardando.length > 0 && (
-            <span style={{ background: '#C0392B', color: '#fff', borderRadius: 20, padding: '3px 10px', fontSize: 13, fontWeight: 700 }}>
-              {aguardando.length} novo{aguardando.length > 1 ? 's' : ''}
-            </span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#2C2C2A' }}>Pedidos Online</h1>
+            {aguardando.length > 0 && (
+              <span style={{ background: '#C0392B', color: '#fff', borderRadius: 20, padding: '3px 10px', fontSize: 13, fontWeight: 700 }}>
+                {aguardando.length} novo{aguardando.length > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          {/* Toggle loja aberta/fechada */}
+          {lojaAberta !== null && (
+            <button
+              onClick={toggleLoja}
+              disabled={togglingLoja}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 16px', borderRadius: 10, cursor: togglingLoja ? 'not-allowed' : 'pointer',
+                background: lojaAberta ? '#E1F5EE' : '#FEF2F2',
+                border: `1.5px solid ${lojaAberta ? '#0F6E56' : '#C0392B'}`,
+                fontFamily: 'inherit', flexShrink: 0,
+              }}>
+              <div style={{
+                width: 40, height: 22, borderRadius: 11, background: lojaAberta ? '#0F6E56' : '#ccc',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+              }}>
+                <span style={{
+                  position: 'absolute', top: 2, left: lojaAberta ? 20 : 2,
+                  width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                  transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }} />
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: lojaAberta ? '#0F6E56' : '#C0392B' }}>
+                {togglingLoja ? '...' : lojaAberta ? 'Loja aberta' : 'Loja fechada'}
+              </span>
+            </button>
           )}
         </div>
         <p style={{ margin: '4px 0 0', fontSize: 13, color: '#888' }}>
@@ -304,6 +381,19 @@ export default function PedidosOnlinePage() {
         ))}
       </div>
 
+      {/* Toggle entregues — só na aba aceitos */}
+      {abaAtiva === 'aceitos' && aceitos.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          <button
+            onClick={() => setOcultarEntregues(v => !v)}
+            style={{ background: 'none', border: '1px solid #E0DDD5', borderRadius: 8, padding: '6px 12px', fontSize: 12, color: '#666', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
+            {ocultarEntregues
+              ? `👁 Mostrar entregues${entreguesOcultos > 0 ? ` (${entreguesOcultos})` : ''}`
+              : '🙈 Ocultar entregues'}
+          </button>
+        </div>
+      )}
+
       {/* Conteúdo */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>Carregando...</div>
@@ -312,7 +402,11 @@ export default function PedidosOnlinePage() {
           <div style={{ fontSize: 40, marginBottom: 12 }}>
             {abaAtiva === 'aguardando' ? '🕐' : abaAtiva === 'aceitos' ? '✅' : '❌'}
           </div>
-          {abaAtiva === 'aguardando' ? 'Nenhum pedido aguardando. Quando um cliente fizer um pedido pelo app, aparecerá aqui.' : `Nenhum pedido ${abaAtiva === 'aceitos' ? 'aceito' : 'recusado'} hoje.`}
+          {abaAtiva === 'aguardando'
+            ? 'Nenhum pedido aguardando. Quando um cliente fizer um pedido pelo app, aparecerá aqui.'
+            : abaAtiva === 'aceitos' && ocultarEntregues && entreguesOcultos > 0
+              ? `Todos os pedidos aceitos foram entregues. Clique em "Mostrar entregues" para ver.`
+              : `Nenhum pedido ${abaAtiva === 'aceitos' ? 'aceito' : 'recusado'} hoje.`}
         </div>
       ) : (
         itensDaAba.map(pedido => (

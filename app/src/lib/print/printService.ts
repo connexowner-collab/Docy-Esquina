@@ -58,6 +58,21 @@ function centralizar(texto: string, largura = W): string {
   return ' '.repeat(esp) + texto
 }
 
+function wrapLine(text: string, indent: string): string[] {
+  if (text.length <= W) return [text]
+  const words = text.split(' ')
+  const lines: string[] = []
+  let cur = ''
+  for (const word of words) {
+    const maxW = lines.length === 0 ? W : W - indent.length
+    const test = cur ? cur + ' ' + word : word
+    if (test.length <= maxW) { cur = test }
+    else { if (cur) lines.push(cur); cur = word }
+  }
+  if (cur) lines.push(cur)
+  return lines.map((line, i) => i === 0 ? line : indent + line)
+}
+
 function wrapItem(nome: string, qty: string, total: string): string[] {
   const words = nome.split(' ')
   const lines: string[] = []
@@ -89,14 +104,14 @@ function buildComandaHTML(pedido: DadosPedido): string {
     SEP1,
     linha(`PEDIDO #${String(pedido.numero_seq).padStart(4, '0')}`, fmtData(pedido.created_at)),
     SEP1,
-    `CLIENTE: ${pedido.clientes.nome}`,
+    ...wrapLine(`CLIENTE: ${pedido.clientes.nome}`, '         '),
     `TEL: ${pedido.clientes.telefone}`,
     ...(pedido.enderecos.logradouro === 'Retirada na Loja'
       ? [`RETIRADA NA LOJA`]
       : [
-          `END: ${pedido.enderecos.logradouro}, ${pedido.enderecos.numero}`,
-          ...(pedido.enderecos.complemento ? [`     ${pedido.enderecos.complemento}`] : []),
-          `     ${pedido.enderecos.bairro}${pedido.enderecos.referencia ? ' — ' + pedido.enderecos.referencia : ''}`,
+          ...wrapLine(`END: ${pedido.enderecos.logradouro}, ${pedido.enderecos.numero}`, '     '),
+          ...(pedido.enderecos.complemento ? wrapLine(`     ${pedido.enderecos.complemento}`, '     ') : []),
+          ...wrapLine(`     ${pedido.enderecos.bairro}${pedido.enderecos.referencia ? ' — ' + pedido.enderecos.referencia : ''}`, '     '),
         ]
     ),
     SEP2,
@@ -104,7 +119,7 @@ function buildComandaHTML(pedido: DadosPedido): string {
     SEP2,
     ...pedido.itens_pedido.flatMap(item => [
       ...wrapItem(item.nome_snapshot, String(item.quantidade) + 'x', fmtMoeda(item.subtotal)),
-      ...(item.observacao ? [`${' '.repeat(QTD_W)}> ${item.observacao}`] : []),
+      ...(item.observacao ? wrapLine(`${' '.repeat(QTD_W)}> ${item.observacao}`, `${' '.repeat(QTD_W)}  `) : []),
     ]),
     SEP2,
     linha('Subtotal:', fmtMoeda(pedido.subtotal)),
@@ -116,7 +131,7 @@ function buildComandaHTML(pedido: DadosPedido): string {
     ] : []),
     SEP1,
     `Pagamento: ${pedido.pagamento.toUpperCase()}${pedido.pago ? ' - PAGO' : ''}`,
-    ...(pedido.observacoes ? [`OBS: ${pedido.observacoes}`] : []),
+    ...(pedido.observacoes ? wrapLine(`OBS: ${pedido.observacoes}`, '     ') : []),
     SEP1,
     centralizar('Obrigado pela preferencia!'),
     centralizar(pedido.nomeEstabelecimento ?? 'Docy Esquina'),

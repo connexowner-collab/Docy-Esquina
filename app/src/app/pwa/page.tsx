@@ -28,7 +28,7 @@ type Endereco = {
   cep?: string
 }
 
-type Step = 'phone' | 'loading' | 'found' | 'not-found' | 'new-client' | 'address'
+type Step = 'phone' | 'loading' | 'found' | 'not-found'
 
 export default function PwaIdentPage() {
   const router = useRouter()
@@ -37,10 +37,9 @@ export default function PwaIdentPage() {
   const [step, setStep] = useState<Step>('phone')
   const [cliente, setCliente] = useState<ClienteData | null>(null)
   const [selectedEnd, setSelectedEnd] = useState<number | null>(null)
-  const [novoEnd, setNovoEnd] = useState<boolean>(false)
   const [config, setConfig] = useState<{ aberto: boolean; nomeEstabelecimento: string; mensagemFechado: string } | null>(null)
 
-  // Novo cliente
+  // Novo cliente (cadastro)
   const [novoNome, setNovoNome] = useState('')
   const [novoCep, setNovoCep] = useState('')
   const [novoLogradouro, setNovoLogradouro] = useState('')
@@ -50,6 +49,17 @@ export default function PwaIdentPage() {
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [cadastrando, setCadastrando] = useState(false)
   const [erroForm, setErroForm] = useState('')
+
+  // Adicionar endereço a cliente existente
+  const [addingAddress, setAddingAddress] = useState(false)
+  const [addCep, setAddCep] = useState('')
+  const [addLogradouro, setAddLogradouro] = useState('')
+  const [addNumero, setAddNumero] = useState('')
+  const [addBairro, setAddBairro] = useState('')
+  const [addComplemento, setAddComplemento] = useState('')
+  const [addBuscandoCep, setAddBuscandoCep] = useState(false)
+  const [addSalvando, setAddSalvando] = useState(false)
+  const [addErro, setAddErro] = useState('')
 
   useEffect(() => {
     fetch('/api/pwa/config').then(r => r.json()).then(setConfig).catch(() => {})
@@ -75,24 +85,34 @@ export default function PwaIdentPage() {
   function handlePhoneChange(v: string) {
     const digits = v.replace(/\D/g, '').slice(0, 11)
     setRawDigits(digits)
-    if (digits.length === 10 || digits.length === 11) {
-      buscarCliente(digits)
+    if (step === 'found') {
+      // Se o usuário editar o número na tela de cliente encontrado, volta a buscar
+      if (digits.length < 10) {
+        setStep('phone')
+        setCliente(null)
+      } else {
+        buscarCliente(digits)
+      }
+    } else {
+      if (digits.length === 10 || digits.length === 11) {
+        buscarCliente(digits)
+      }
     }
   }
 
-  async function buscarCep(cep: string) {
+  async function buscarCep(cep: string, setLog: (v: string) => void, setBairro: (v: string) => void, setBuscando: (v: boolean) => void) {
     const digits = cep.replace(/\D/g, '')
     if (digits.length !== 8) return
-    setBuscandoCep(true)
+    setBuscando(true)
     try {
       const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
       const data = await res.json()
       if (!data.erro) {
-        setNovoLogradouro(data.logradouro || '')
-        setNovoBairro(data.bairro || '')
+        setLog(data.logradouro || '')
+        setBairro(data.bairro || '')
       }
     } catch {}
-    setBuscandoCep(false)
+    setBuscando(false)
   }
 
   function salvarClienteLocal(data: ClienteData) {
@@ -153,12 +173,52 @@ export default function PwaIdentPage() {
     }
   }
 
+  async function handleAdicionarEndereco(e: React.FormEvent) {
+    e.preventDefault()
+    if (!addLogradouro || !addNumero || !addBairro) {
+      setAddErro('Preencha rua, número e bairro')
+      return
+    }
+    if (!cliente) return
+    setAddSalvando(true)
+    setAddErro('')
+    try {
+      const res = await fetch('/api/pwa/enderecos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clienteId: cliente.clienteId,
+          logradouro: addLogradouro,
+          numero: addNumero,
+          complemento: addComplemento || null,
+          bairro: addBairro,
+          cep: addCep.replace(/\D/g, '') || null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setAddErro(data.error || 'Erro ao salvar'); return }
+
+      const novoEndereco: Endereco = { id: data.id, logradouro: data.logradouro, numero: data.numero, complemento: data.complemento || undefined, bairro: data.bairro, cep: data.cep || undefined }
+      const clienteAtualizado = { ...cliente, enderecos: [...cliente.enderecos, novoEndereco] }
+      setCliente(clienteAtualizado)
+      setSelectedEnd(novoEndereco.id)
+      setAddingAddress(false)
+      setAddCep(''); setAddLogradouro(''); setAddNumero(''); setAddBairro(''); setAddComplemento('')
+    } catch {
+      setAddErro('Erro de conexão')
+    } finally {
+      setAddSalvando(false)
+    }
+  }
+
   // Fechado
   if (config && !config.aberto) {
     return (
       <div className="pwa-screen">
         <div className="pwa-hero" style={{ flex: 1, justifyContent: 'center' }}>
-          <div className="pwa-hero-logo">🍔</div>
+          <div className="pwa-hero-logo">
+            <img src="/LOGO.png" alt="Logo" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 45%' }} />
+          </div>
           <h1>{config.nomeEstabelecimento}</h1>
           <p style={{ color: 'rgba(255,255,255,0.85)', marginTop: 12, textAlign: 'center', lineHeight: 1.5 }}>
             {config.mensagemFechado}
@@ -172,7 +232,9 @@ export default function PwaIdentPage() {
     <div className="pwa-screen">
       {/* Hero */}
       <div className="pwa-hero">
-        <div className="pwa-hero-logo">🍔</div>
+        <div className="pwa-hero-logo">
+          <img src="/LOGO.png" alt="Docy Esquina" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 45%' }} />
+        </div>
         <h1>{config?.nomeEstabelecimento ?? 'Docy Esquina'}</h1>
         <div className="pwa-hero-status">
           <span className="pwa-live-dot" />
@@ -193,7 +255,6 @@ export default function PwaIdentPage() {
               Vamos identificar ou cadastrar você rapidinho
             </p>
 
-            {/* Campo de telefone — teclado nativo do celular */}
             <div
               className={`pwa-phone-display${!rawDigits ? ' empty' : ''}`}
               onClick={() => inputRef.current?.focus()}
@@ -230,9 +291,28 @@ export default function PwaIdentPage() {
         {step === 'found' && cliente && (
           <>
             <h2 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 4px' }}>Olá, {cliente.nome.split(' ')[0]}! 👋</h2>
-            <p style={{ fontSize: 13, color: 'var(--pwa-muted)', margin: '0 0 18px' }}>
+            <p style={{ fontSize: 13, color: 'var(--pwa-muted)', margin: '0 0 14px' }}>
               Identificamos sua conta. Escolha o endereço de entrega.
             </p>
+
+            {/* Campo de telefone editável — permanece visível para troca fácil */}
+            <div
+              className="pwa-phone-display"
+              onClick={() => inputRef.current?.focus()}
+              style={{ marginBottom: 16, fontSize: 15 }}
+            >
+              {formatPhone(rawDigits)}
+              <input
+                ref={inputRef}
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={rawDigits}
+                onChange={e => handlePhoneChange(e.target.value)}
+                style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+              />
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--pwa-muted)', fontWeight: 400 }}>toque para trocar</span>
+            </div>
 
             {/* Box cliente */}
             <div style={{ background: 'var(--pwa-amber-bg)', border: '1px solid var(--pwa-amber-border)', borderRadius: 'var(--pwa-r-lg)', padding: 14, display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -255,7 +335,7 @@ export default function PwaIdentPage() {
               <div
                 key={end.id}
                 className={`pwa-addr-card${selectedEnd === end.id ? ' selected' : ''}`}
-                onClick={() => { setSelectedEnd(end.id); setNovoEnd(false) }}
+                onClick={() => { setSelectedEnd(end.id); setAddingAddress(false) }}
               >
                 <div className="radio" />
                 <div style={{ flex: 1 }}>
@@ -268,15 +348,77 @@ export default function PwaIdentPage() {
               </div>
             ))}
 
-            <button className="pwa-btn pwa-btn-primary" style={{ marginTop: 8 }}
+            {/* Botão adicionar novo endereço */}
+            {!addingAddress && (
+              <button
+                className="pwa-btn pwa-btn-ghost"
+                style={{ marginTop: 8, fontSize: 13, color: 'var(--pwa-primary)' }}
+                onClick={() => { setAddingAddress(true); setSelectedEnd(null) }}>
+                + Adicionar novo endereço
+              </button>
+            )}
+
+            {/* Formulário de novo endereço inline */}
+            {addingAddress && (
+              <form onSubmit={handleAdicionarEndereco} style={{ background: 'var(--pwa-bg-input)', borderRadius: 'var(--pwa-r-lg)', padding: '14px 14px 10px', marginTop: 10, border: '1px solid var(--pwa-border)' }}>
+                <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--pwa-muted)', margin: '0 0 12px' }}>NOVO ENDEREÇO</p>
+
+                <div className="pwa-field">
+                  <label>CEP</label>
+                  <input
+                    className="pwa-input"
+                    value={addCep}
+                    placeholder="00000-000"
+                    inputMode="numeric"
+                    onChange={e => {
+                      const v = e.target.value.replace(/\D/g, '').slice(0, 8)
+                      const fmt = v.length > 5 ? `${v.slice(0, 5)}-${v.slice(5)}` : v
+                      setAddCep(fmt)
+                      if (v.length === 8) buscarCep(v, setAddLogradouro, setAddBairro, setAddBuscandoCep)
+                    }}
+                  />
+                  {addBuscandoCep && <span style={{ fontSize: 11, color: 'var(--pwa-muted)' }}>Buscando endereço...</span>}
+                </div>
+
+                <div className="pwa-field">
+                  <label>Rua / Avenida <span className="req">*</span></label>
+                  <input className="pwa-input" value={addLogradouro} onChange={e => setAddLogradouro(e.target.value)} placeholder="Nome da rua" required />
+                </div>
+
+                <div className="pwa-input-row">
+                  <div className="pwa-field">
+                    <label>Número <span className="req">*</span></label>
+                    <input className="pwa-input" value={addNumero} onChange={e => setAddNumero(e.target.value)} placeholder="123" required />
+                  </div>
+                  <div className="pwa-field">
+                    <label>Bairro <span className="req">*</span></label>
+                    <input className="pwa-input" value={addBairro} onChange={e => setAddBairro(e.target.value)} placeholder="Bairro" required />
+                  </div>
+                </div>
+
+                <div className="pwa-field">
+                  <label>Complemento</label>
+                  <input className="pwa-input" value={addComplemento} onChange={e => setAddComplemento(e.target.value)} placeholder="Apto, bloco... (opcional)" />
+                </div>
+
+                {addErro && <p style={{ color: 'var(--pwa-red-ink)', fontSize: 13, marginBottom: 10 }}>{addErro}</p>}
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" className="pwa-btn pwa-btn-ghost" style={{ flex: 1 }}
+                    onClick={() => { setAddingAddress(false); setAddErro(''); setSelectedEnd(cliente.enderecos[0]?.id ?? null) }}>
+                    Cancelar
+                  </button>
+                  <button type="submit" className="pwa-btn pwa-btn-primary" style={{ flex: 2 }} disabled={addSalvando}>
+                    {addSalvando ? 'Salvando...' : 'Salvar endereço'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <button className="pwa-btn pwa-btn-primary" style={{ marginTop: 12 }}
               disabled={!selectedEnd}
               onClick={() => continuarComCliente(cliente, selectedEnd!)}>
               Continuar →
-            </button>
-
-            <button className="pwa-btn pwa-btn-ghost" style={{ marginTop: 8 }}
-              onClick={() => { setStep('phone'); setRawDigits(''); setCliente(null); setTimeout(() => inputRef.current?.focus(), 100) }}>
-              Não sou eu
             </button>
           </>
         )}
@@ -295,13 +437,11 @@ export default function PwaIdentPage() {
             </div>
 
             <form onSubmit={handleCadastrar}>
-              {/* Nome */}
               <div className="pwa-field">
                 <label>Nome completo <span className="req">*</span></label>
                 <input className="pwa-input" value={novoNome} onChange={e => setNovoNome(e.target.value)} placeholder="Seu nome" required />
               </div>
 
-              {/* CEP */}
               <div className="pwa-field">
                 <label>CEP</label>
                 <input
@@ -313,19 +453,17 @@ export default function PwaIdentPage() {
                     const v = e.target.value.replace(/\D/g, '').slice(0, 8)
                     const fmt = v.length > 5 ? `${v.slice(0, 5)}-${v.slice(5)}` : v
                     setNovoCep(fmt)
-                    if (v.length === 8) buscarCep(v)
+                    if (v.length === 8) buscarCep(v, setNovoLogradouro, setNovoBairro, setBuscandoCep)
                   }}
                 />
                 {buscandoCep && <span style={{ fontSize: 11, color: 'var(--pwa-muted)' }}>Buscando endereço...</span>}
               </div>
 
-              {/* Logradouro */}
               <div className="pwa-field">
                 <label>Rua / Avenida <span className="req">*</span></label>
                 <input className="pwa-input" value={novoLogradouro} onChange={e => setNovoLogradouro(e.target.value)} placeholder="Nome da rua" required />
               </div>
 
-              {/* Número + Bairro */}
               <div className="pwa-input-row">
                 <div className="pwa-field">
                   <label>Número <span className="req">*</span></label>
@@ -337,7 +475,6 @@ export default function PwaIdentPage() {
                 </div>
               </div>
 
-              {/* Complemento */}
               <div className="pwa-field">
                 <label>Complemento</label>
                 <input className="pwa-input" value={novoComplemento} onChange={e => setNovoComplemento(e.target.value)} placeholder="Apto, bloco... (opcional)" />

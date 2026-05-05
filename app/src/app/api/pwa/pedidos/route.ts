@@ -15,6 +15,11 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createClient()
 
+  const { data: cfg } = await supabase.from('configuracoes').select('pwa_ativo').single()
+  if (cfg && cfg.pwa_ativo === false) {
+    return NextResponse.json({ error: 'Restaurante fechado no momento.' }, { status: 503 })
+  }
+
   const { data: pedido, error: pedidoError } = await supabase
     .from('pedidos')
     .insert({

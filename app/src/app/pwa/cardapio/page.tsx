@@ -97,6 +97,10 @@ export default function PwaCardapioPage() {
     }
   }
 
+  function updateObs(itemId: number, obs: string) {
+    saveCart(cart.map(i => i.itemId === itemId ? { ...i, observacao: obs } : i))
+  }
+
   if (loading) {
     return (
       <div className="pwa-screen" style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -157,27 +161,40 @@ export default function PwaCardapioPage() {
         )}
         {itensFiltrados.map(item => {
           const qty = qtyInCart(item.id)
+          const obsAtual = cart.find(i => i.itemId === item.id)?.observacao ?? ''
           return (
-            <div key={item.id} style={{ background: '#fff', borderRadius: 'var(--pwa-r-md)', padding: '14px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 14, border: '1px solid #F0EDE6' }}>
-              <div
-                style={{ width: 56, height: 56, borderRadius: 12, background: 'var(--pwa-bg-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flexShrink: 0, cursor: 'pointer' }}
-                onClick={() => openModal(item)}>
-                🍔
-              </div>
-              <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => openModal(item)}>
-                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>{item.nome}</div>
-                {item.descricao && <div style={{ fontSize: 12, color: 'var(--pwa-muted)', marginBottom: 4 }}>{item.descricao}</div>}
-                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--pwa-primary)' }}>{fmtMoeda(item.preco)}</div>
-              </div>
-              {/* Controles de qty */}
-              {qty > 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button onClick={() => quickRemove(item)} style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid var(--pwa-primary)', background: '#fff', color: 'var(--pwa-primary)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                  <span style={{ fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{qty}</span>
-                  <button onClick={() => quickAdd(item)} style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--pwa-primary)', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+            <div key={item.id} style={{ background: '#fff', borderRadius: 'var(--pwa-r-md)', padding: '14px', marginBottom: 8, border: `1px solid ${qty > 0 ? 'var(--pwa-primary)' : '#F0EDE6'}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div
+                  style={{ width: 56, height: 56, borderRadius: 12, background: 'var(--pwa-bg-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flexShrink: 0, cursor: 'pointer' }}
+                  onClick={() => openModal(item)}>
+                  🍔
                 </div>
-              ) : (
-                <button onClick={() => quickAdd(item)} style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--pwa-primary)', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => openModal(item)}>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>{item.nome}</div>
+                  {item.descricao && <div style={{ fontSize: 12, color: 'var(--pwa-muted)', marginBottom: 4 }}>{item.descricao}</div>}
+                  <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--pwa-primary)' }}>{fmtMoeda(item.preco)}</div>
+                </div>
+                {/* Controles de qty */}
+                {qty > 0 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button onClick={() => quickRemove(item)} style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid var(--pwa-primary)', background: '#fff', color: 'var(--pwa-primary)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                    <span style={{ fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{qty}</span>
+                    <button onClick={() => quickAdd(item)} style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--pwa-primary)', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                  </div>
+                ) : (
+                  <button onClick={() => quickAdd(item)} style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--pwa-primary)', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                )}
+              </div>
+              {/* Campo observação — aparece quando o item está no carrinho */}
+              {qty > 0 && (
+                <input
+                  className="pwa-input"
+                  style={{ marginTop: 10, fontSize: 12, padding: '8px 12px', background: 'var(--pwa-bg-input)' }}
+                  placeholder="Observação: sem cebola, sem molho..."
+                  value={obsAtual}
+                  onChange={e => updateObs(item.id, e.target.value)}
+                />
               )}
             </div>
           )
