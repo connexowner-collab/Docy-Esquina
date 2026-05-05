@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .select(`
       id, numero_seq, status_pedido, status_validacao,
       motivo_recusa, status_updated_at, created_at,
-      subtotal, taxa_entrega, total, pagamento, troco,
+      subtotal, taxa_entrega, total, pagamento, troco, tipo_entrega,
       clientes(nome, telefone),
       enderecos(logradouro, numero, bairro),
       itens_pedido(nome_snapshot, preco_snapshot, quantidade, observacao_item)

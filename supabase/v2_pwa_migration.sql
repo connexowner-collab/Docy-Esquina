@@ -22,7 +22,9 @@ ALTER TABLE public.pedidos
     CHECK (status_validacao IN ('pendente', 'aceito', 'recusado')),
   ADD COLUMN IF NOT EXISTS motivo_recusa TEXT,
   ADD COLUMN IF NOT EXISTS aceito_em TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS status_updated_at TIMESTAMPTZ DEFAULT NOW();
+  ADD COLUMN IF NOT EXISTS status_updated_at TIMESTAMPTZ DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS tipo_entrega TEXT NOT NULL DEFAULT 'entrega'
+    CHECK (tipo_entrega IN ('entrega', 'retirada'));
 
 -- 4. ITENS DO PEDIDO — observação por item
 ALTER TABLE public.itens_pedido

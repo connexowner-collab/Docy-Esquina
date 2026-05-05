@@ -3,10 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { clienteId, enderecoId, itens, pagamento, troco, observacoes, taxaEntrega, subtotal, total } = body
+  const { clienteId, enderecoId, tipoEntrega, itens, pagamento, troco, observacoes, taxaEntrega, subtotal, total } = body
+  const tipo = tipoEntrega === 'retirada' ? 'retirada' : 'entrega'
 
-  if (!clienteId || !enderecoId || !itens?.length || !pagamento) {
+  if (!clienteId || !itens?.length || !pagamento) {
     return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 })
+  }
+  if (tipo === 'entrega' && !enderecoId) {
+    return NextResponse.json({ error: 'Endereço obrigatório para entrega' }, { status: 400 })
   }
 
   const supabase = await createClient()
@@ -15,14 +19,15 @@ export async function POST(req: NextRequest) {
     .from('pedidos')
     .insert({
       cliente_id: clienteId,
-      endereco_id: enderecoId,
+      endereco_id: tipo === 'entrega' ? enderecoId : null,
       subtotal: subtotal ?? 0,
-      taxa_entrega: taxaEntrega ?? 0,
+      taxa_entrega: tipo === 'retirada' ? 0 : (taxaEntrega ?? 0),
       total: total ?? subtotal ?? 0,
       pagamento,
       troco: troco || null,
       observacoes: observacoes || null,
       origem: 'pwa',
+      tipo_entrega: tipo,
       status_pedido: 'pendente',
       status_validacao: 'pendente',
     })

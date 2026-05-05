@@ -21,9 +21,10 @@ export default function PwaSacolaPage() {
   const [pagamento, setPagamento] = useState<Pagamento>('pix')
   const [troco, setTroco] = useState('')
   const [observacoes, setObservacoes] = useState('')
+  const [tipoEntrega, setTipoEntrega] = useState<'entrega' | 'retirada'>('entrega')
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
-  const [taxaEntrega, setTaxaEntrega] = useState(0)
+  const [taxaEntregaBase, setTaxaEntregaBase] = useState(0)
 
   useEffect(() => {
     const clienteRaw = localStorage.getItem('pwa_cliente')
@@ -43,7 +44,7 @@ export default function PwaSacolaPage() {
 
     // Buscar taxa de entrega
     fetch('/api/pwa/config').then(r => r.json()).then(cfg => {
-      setTaxaEntrega(cfg.taxaMinima ?? 5)
+      setTaxaEntregaBase(cfg.taxaMinima ?? 5)
     })
   }, [router])
 
@@ -57,6 +58,7 @@ export default function PwaSacolaPage() {
     saveCart(updated)
   }
 
+  const taxaEntrega = tipoEntrega === 'retirada' ? 0 : taxaEntregaBase
   const subtotal = cart.reduce((s, i) => s + i.preco * i.qty, 0)
   const total = subtotal + taxaEntrega
 
@@ -72,7 +74,8 @@ export default function PwaSacolaPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clienteId,
-          enderecoId,
+          enderecoId: tipoEntrega === 'retirada' ? null : enderecoId,
+          tipoEntrega,
           itens: cart.map(i => ({ itemId: i.itemId, nome: i.nome, preco: i.preco, qty: i.qty, observacao: i.observacao })),
           pagamento,
           troco: pagamento === 'dinheiro' && troco ? Number(troco.replace(',', '.')) : null,
@@ -115,6 +118,32 @@ export default function PwaSacolaPage() {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 120px' }}>
 
+        {/* Tipo de entrega */}
+        <div style={{ background: '#fff', borderRadius: 'var(--pwa-r-lg)', border: '1px solid #F0EDE6', padding: '14px 16px', marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--pwa-muted)', marginBottom: 12 }}>COMO DESEJA RECEBER?</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {([
+              { v: 'entrega', label: '🛵 Entrega' },
+              { v: 'retirada', label: '🏪 Retirada no local' },
+            ] as const).map(opt => (
+              <button
+                key={opt.v}
+                onClick={() => setTipoEntrega(opt.v)}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 'var(--pwa-r-md)',
+                  border: `2px solid ${tipoEntrega === opt.v ? 'var(--pwa-primary)' : 'var(--pwa-border)'}`,
+                  background: tipoEntrega === opt.v ? 'var(--pwa-primary-light)' : '#fff',
+                  fontSize: 13, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  color: 'var(--pwa-ink)',
+                }}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Itens */}
         <div style={{ background: '#fff', borderRadius: 'var(--pwa-r-lg)', border: '1px solid #F0EDE6', marginBottom: 12, overflow: 'hidden' }}>
           <div style={{ padding: '14px 16px', borderBottom: '1px solid #F0EDE6', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--pwa-muted)' }}>
@@ -136,10 +165,10 @@ export default function PwaSacolaPage() {
           ))}
         </div>
 
-        {/* Endereço */}
-        {endereco && (
+        {/* Endereço — só para entrega */}
+        {tipoEntrega === 'entrega' && endereco && (
           <div style={{ background: '#fff', borderRadius: 'var(--pwa-r-lg)', border: '1px solid #F0EDE6', padding: '14px 16px', marginBottom: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--pwa-muted)', marginBottom: 8 }}>ENDEREÇO</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--pwa-muted)', marginBottom: 8 }}>ENDEREÇO DE ENTREGA</div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>{endereco.logradouro}, {endereco.numero}</div>
             <div style={{ fontSize: 12, color: 'var(--pwa-muted)' }}>{endereco.bairro}{endereco.complemento ? ` — ${endereco.complemento}` : ''}</div>
           </div>
@@ -205,9 +234,16 @@ export default function PwaSacolaPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8, opacity: 0.8 }}>
             <span>Subtotal</span><span>{fmtMoeda(subtotal)}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 12, opacity: 0.8 }}>
-            <span>Taxa de entrega</span><span>{fmtMoeda(taxaEntrega)}</span>
-          </div>
+          {tipoEntrega === 'entrega' && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 12, opacity: 0.8 }}>
+              <span>Taxa de entrega</span><span>{fmtMoeda(taxaEntrega)}</span>
+            </div>
+          )}
+          {tipoEntrega === 'retirada' && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 12, opacity: 0.7 }}>
+              <span>Retirada no local</span><span style={{ color: '#6EE7B7' }}>Grátis</span>
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 12 }}>
             <span style={{ fontWeight: 600, fontSize: 15 }}>Total</span>
             <span style={{ fontWeight: 700, fontSize: 20, color: '#fff' }}>{fmtMoeda(total)}</span>

@@ -18,8 +18,9 @@ type Pedido = {
   pagamento: string
   troco?: number
   observacoes?: string
+  tipo_entrega: 'entrega' | 'retirada'
   clientes: { nome: string; telefone: string }
-  enderecos: { logradouro: string; numero: string; bairro: string }
+  enderecos: { logradouro: string; numero: string; bairro: string } | null
   itens_pedido: { nome_snapshot: string; preco_snapshot: number; quantidade: number; observacao_item?: string }[]
 }
 
@@ -55,7 +56,7 @@ export default function PedidosOnlinePage() {
       .from('pedidos')
       .select(`
         id, numero_seq, status_pedido, status_validacao, motivo_recusa,
-        created_at, subtotal, taxa_entrega, total, pagamento, troco, observacoes,
+        created_at, subtotal, taxa_entrega, total, pagamento, troco, observacoes, tipo_entrega,
         clientes(nome, telefone),
         enderecos(logradouro, numero, bairro),
         itens_pedido(nome_snapshot, preco_snapshot, quantidade, observacao_item)
@@ -174,9 +175,13 @@ export default function PedidosOnlinePage() {
             ))}
           </div>
 
-          {/* Endereço */}
+          {/* Endereço / Retirada */}
           <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
-            📍 {pedido.enderecos?.logradouro}, {pedido.enderecos?.numero} — {pedido.enderecos?.bairro}
+            {pedido.tipo_entrega === 'retirada' ? (
+              <span style={{ background: '#E1F5EE', color: '#0F6E56', borderRadius: 6, padding: '3px 8px', fontWeight: 600 }}>🏪 Retirada no local</span>
+            ) : (
+              <>📍 {pedido.enderecos?.logradouro}, {pedido.enderecos?.numero} — {pedido.enderecos?.bairro}</>
+            )}
           </div>
 
           {/* Pagamento */}
@@ -219,12 +224,20 @@ export default function PedidosOnlinePage() {
 
         {modo === 'aceito' && (
           <div style={{ padding: '10px 16px', borderTop: '1px solid #F5F3EF', display: 'flex', gap: 8 }}>
-            {pedido.status_pedido === 'em_preparo' && (
+            {pedido.status_pedido === 'em_preparo' && pedido.tipo_entrega === 'entrega' && (
               <button
                 onClick={() => avancarStatus(pedido.id, 'em_entrega')}
                 disabled={processando === pedido.id}
                 style={{ flex: 1, padding: '10px', background: '#E6F1FB', border: '1px solid #B5D4F4', borderRadius: 8, color: '#185FA5', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                 {processando === pedido.id ? '...' : '🛵 Saiu para entrega'}
+              </button>
+            )}
+            {pedido.status_pedido === 'em_preparo' && pedido.tipo_entrega === 'retirada' && (
+              <button
+                onClick={() => avancarStatus(pedido.id, 'entregue')}
+                disabled={processando === pedido.id}
+                style={{ flex: 1, padding: '10px', background: '#E1F5EE', border: '1px solid #9FE1CB', borderRadius: 8, color: '#0F6E56', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {processando === pedido.id ? '...' : '🏪 Confirmar retirada'}
               </button>
             )}
             {pedido.status_pedido === 'em_entrega' && (
@@ -237,7 +250,7 @@ export default function PedidosOnlinePage() {
             )}
             {pedido.status_pedido === 'entregue' && (
               <span style={{ flex: 1, padding: '10px', background: '#E1F5EE', borderRadius: 8, color: '#0F6E56', fontWeight: 600, fontSize: 13, textAlign: 'center' }}>
-                ✓ Entregue
+                {pedido.tipo_entrega === 'retirada' ? '✓ Retirado' : '✓ Entregue'}
               </span>
             )}
           </div>

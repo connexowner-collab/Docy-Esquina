@@ -17,14 +17,24 @@ type Pedido = {
   taxa_entrega: number
   total: number
   pagamento: string
+  tipo_entrega: 'entrega' | 'retirada'
   clientes: { nome: string; telefone: string }
-  enderecos: { logradouro: string; numero: string; bairro: string }
+  enderecos: { logradouro: string; numero: string; bairro: string } | null
   itens_pedido: { nome_snapshot: string; preco_snapshot: number; quantidade: number; observacao_item?: string }[]
 }
 
 type StepState = 'done' | 'active' | 'pending' | 'refused'
 
-function getSteps(status: StatusPedido): StepState[] {
+function getSteps(status: StatusPedido, tipo: 'entrega' | 'retirada'): StepState[] {
+  if (tipo === 'retirada') {
+    switch (status) {
+      case 'pendente':    return ['done', 'active', 'pending']
+      case 'em_preparo':  return ['done', 'done', 'active']
+      case 'em_entrega':
+      case 'entregue':    return ['done', 'done', 'done']
+      case 'recusado':    return ['done', 'refused', 'pending']
+    }
+  }
   switch (status) {
     case 'pendente':    return ['done', 'active', 'pending', 'pending']
     case 'em_preparo':  return ['done', 'done', 'active', 'pending']
@@ -34,13 +44,14 @@ function getSteps(status: StatusPedido): StepState[] {
   }
 }
 
-const STEP_LABELS = ['Enviado', 'Confirmado', 'Em preparo', 'Entregue']
+const STEP_LABELS_ENTREGA = ['Enviado', 'Confirmado', 'Em preparo', 'Entregue']
+const STEP_LABELS_RETIRADA = ['Enviado', 'Confirmado', 'Pronto p/ retirar']
 
-const STATUS_INFO: Record<StatusPedido, { cor: string; titulo: string; texto: string; icone: string }> = {
+const STATUS_INFO: Record<StatusPedido, { cor: string; titulo: string; texto: string; icone: string; tituloRetirada?: string; textoRetirada?: string; iconeRetirada?: string }> = {
   pendente:   { cor: 'amber', titulo: 'Aguardando confirmação', texto: 'Seu pedido foi recebido e está aguardando confirmação do estabelecimento.', icone: '⏳' },
   em_preparo: { cor: 'green', titulo: 'Pedido aceito! Em preparo', texto: 'Ótimo! Seu pedido foi confirmado e está sendo preparado com carinho.', icone: '✅' },
   em_entrega: { cor: 'blue',  titulo: 'Saiu para entrega!', texto: 'Seu pedido está a caminho. Fique de olho!', icone: '🛵' },
-  entregue:   { cor: 'green', titulo: 'Entregue com sucesso!', texto: 'Bom apetite! Esperamos que você aproveite seu pedido.', icone: '✓✓' },
+  entregue:   { cor: 'green', titulo: 'Entregue com sucesso!', texto: 'Bom apetite! Esperamos que você aproveite seu pedido.', icone: '✓✓', tituloRetirada: 'Pode vir buscar!', textoRetirada: 'Seu pedido está pronto. Venha retirar no balcão!' , iconeRetirada: '🏪' },
   recusado:   { cor: 'red',   titulo: 'Pedido recusado', texto: 'Infelizmente seu pedido não pôde ser aceito neste momento.', icone: '❌' },
 }
 
@@ -126,8 +137,13 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
   }
 
   const status = pedido.status_pedido
-  const info = STATUS_INFO[status]
-  const steps = getSteps(status)
+  const tipo = pedido.tipo_entrega ?? 'entrega'
+  const rawInfo = STATUS_INFO[status]
+  const info = tipo === 'retirada'
+    ? { cor: rawInfo.cor, titulo: rawInfo.tituloRetirada ?? rawInfo.titulo, texto: rawInfo.textoRetirada ?? rawInfo.texto, icone: rawInfo.iconeRetirada ?? rawInfo.icone }
+    : rawInfo
+  const steps = getSteps(status, tipo)
+  const stepLabels = tipo === 'retirada' ? STEP_LABELS_RETIRADA : STEP_LABELS_ENTREGA
 
   return (
     <div className="pwa-screen">
@@ -178,7 +194,7 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
                       <span style={{ fontSize: 12 }}>{i + 1}</span>
                     )}
                   </div>
-                  <div className="pwa-step-label">{STEP_LABELS[i]}</div>
+                  <div className="pwa-step-label">{stepLabels[i]}</div>
                 </div>
                 {i < steps.length - 1 && (
                   <div key={`line-${i}`} className={`pwa-step-line ${steps[i] === 'done' ? 'done' : ''}`} />
@@ -214,9 +230,11 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
             </div>
           ))}
           <div style={{ borderTop: '1px dashed #E5E2DA', marginTop: 8, paddingTop: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--pwa-muted)', marginBottom: 4 }}>
-              <span>Taxa de entrega</span><span>{fmtMoeda(pedido.taxa_entrega)}</span>
-            </div>
+            {tipo === 'entrega' && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--pwa-muted)', marginBottom: 4 }}>
+                <span>Taxa de entrega</span><span>{fmtMoeda(pedido.taxa_entrega)}</span>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <span style={{ fontSize: 13, color: 'var(--pwa-ink-2)' }}>Total</span>
               <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--pwa-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmtMoeda(pedido.total)}</span>
@@ -227,7 +245,9 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
         {/* Detalhes */}
         <div style={{ background: '#fff', margin: '0 12px 12px', borderRadius: 14, padding: 14, border: '1px solid #EFEDE6' }}>
           {[
-            { label: 'Endereço', value: `${pedido.enderecos?.logradouro}, ${pedido.enderecos?.numero} — ${pedido.enderecos?.bairro}` },
+            tipo === 'retirada'
+              ? { label: 'Retirada', value: 'No local — sem taxa de entrega' }
+              : { label: 'Endereço', value: `${pedido.enderecos?.logradouro}, ${pedido.enderecos?.numero} — ${pedido.enderecos?.bairro}` },
             { label: 'Pagamento', value: pedido.pagamento.charAt(0).toUpperCase() + pedido.pagamento.slice(1) },
           ].map(({ label, value }) => (
             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 12.5, borderBottom: '1px solid #F2F0E8' }}>
