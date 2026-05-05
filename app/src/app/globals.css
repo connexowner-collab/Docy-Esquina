@@ -121,7 +121,385 @@ body {
 .chip-active   { background: var(--brand-red); color: #fff; border-radius: 20px; padding: 5px 12px; font-size: 12px; cursor: pointer; border: none; }
 .chip-inactive { background: var(--row-alt); border: 0.5px solid var(--border); color: var(--text-muted); border-radius: 20px; padding: 5px 12px; font-size: 12px; cursor: pointer; }
 
+/* ============================================================
+   PWA Design Tokens — Docy Esquina V2
+   ============================================================ */
+.pwa-root {
+  --pwa-primary: #C0392B;
+  --pwa-primary-dark: #A02E22;
+  --pwa-primary-light: #FFF5F5;
+  --pwa-secondary: #E8870A;
+  --pwa-secondary-dark: #B8600A;
+  --pwa-bg: #F7F5F0;
+  --pwa-bg-input: #F5F3EF;
+  --pwa-bg-card: #FFFFFF;
+  --pwa-bg-soft: #FAF8F5;
+  --pwa-ink: #2C2C2A;
+  --pwa-ink-2: #555;
+  --pwa-muted: #888;
+  --pwa-muted-2: #BBB;
+  --pwa-border: #E0DDD5;
+  --pwa-amber-bg: #FDF3E3;
+  --pwa-amber-border: #F5C070;
+  --pwa-amber-ink: #B8600A;
+  --pwa-green-bg: #E1F5EE;
+  --pwa-green-border: #9FE1CB;
+  --pwa-green-ink: #0F6E56;
+  --pwa-blue-bg: #E6F1FB;
+  --pwa-blue-border: #B5D4F4;
+  --pwa-blue-ink: #185FA5;
+  --pwa-red-bg: #FCEBEB;
+  --pwa-red-border: #F09595;
+  --pwa-red-ink: #B33A3A;
+  --pwa-r-sm: 10px;
+  --pwa-r-md: 12px;
+  --pwa-r-lg: 14px;
+  --pwa-r-xl: 22px;
+
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: var(--pwa-bg);
+  color: var(--pwa-ink);
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* PWA Shell */
+.pwa-screen {
+  max-width: 480px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  background: var(--pwa-bg);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Hero — gradiente vermelho→laranja */
+.pwa-hero {
+  background: linear-gradient(180deg, var(--pwa-primary) 0%, var(--pwa-secondary) 100%);
+  color: #fff;
+  padding: 56px 20px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+}
+.pwa-hero-logo {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid rgba(255,255,255,0.35);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  margin-bottom: 14px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+  font-size: 32px;
+}
+.pwa-hero h1 {
+  font-size: 22px; font-weight: 600;
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+.pwa-hero-status {
+  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+  display: flex; align-items: center; gap: 6px;
+}
+.pwa-live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #6BE5A1;
+  box-shadow: 0 0 0 3px rgba(107,229,161,0.3);
+  animation: pwa-pulse 1.6s infinite;
+}
+@keyframes pwa-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(107,229,161,0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(107,229,161,0.05); }
+}
+
+/* Sheet — card branco sobre o hero */
+.pwa-sheet {
+  background: #fff;
+  border-radius: 22px 22px 0 0;
+  margin-top: -20px;
+  flex: 1;
+  padding: 24px 20px 32px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Botões PWA */
+.pwa-btn {
+  width: 100%;
+  border: none;
+  border-radius: var(--pwa-r-lg);
+  padding: 15px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.06s, background 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.pwa-btn:active { transform: scale(0.985); }
+.pwa-btn-primary {
+  background: var(--pwa-primary);
+  color: #fff;
+  box-shadow: 0 4px 14px -4px rgba(192,57,43,0.45);
+}
+.pwa-btn-primary:hover { background: var(--pwa-primary-dark); }
+.pwa-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.pwa-btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--pwa-border);
+  color: var(--pwa-ink-2);
+  font-weight: 500;
+  font-size: 13px;
+  padding: 13px;
+}
+.pwa-btn-ghost {
+  background: transparent;
+  color: var(--pwa-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Campo de input PWA */
+.pwa-field { margin-bottom: 12px; }
+.pwa-field label {
+  display: block;
+  font-size: 12px; font-weight: 500;
+  color: var(--pwa-ink-2);
+  margin-bottom: 6px;
+}
+.pwa-field label .req { color: var(--pwa-primary); }
+.pwa-input {
+  width: 100%;
+  background: var(--pwa-bg-soft);
+  border: 1px solid #EFEDE6;
+  border-radius: var(--pwa-r-md);
+  padding: 12px 14px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--pwa-ink);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.pwa-input:focus { border-color: var(--pwa-primary); background: #fff; }
+.pwa-input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* Phone display */
+.pwa-phone-display {
+  background: var(--pwa-bg-input);
+  border-radius: var(--pwa-r-lg);
+  padding: 18px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--pwa-ink);
+  margin-bottom: 20px;
+  font-variant-numeric: tabular-nums;
+  min-height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid transparent;
+  transition: border-color 0.15s;
+  cursor: text;
+}
+.pwa-phone-display:focus-within { border-color: var(--pwa-primary); }
+.pwa-phone-display.empty { color: var(--pwa-muted-2); font-weight: 400; font-size: 16px; }
+
+/* Progress bar de status */
+.pwa-steps {
+  display: flex;
+  align-items: flex-start;
+  padding: 4px 0;
+}
+.pwa-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+.pwa-step-dot {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+  background: #fff;
+  border: 2px solid var(--pwa-border);
+  color: #CCC;
+  position: relative; z-index: 1;
+  transition: all 0.3s;
+}
+.pwa-step.done .pwa-step-dot {
+  background: var(--pwa-primary);
+  border-color: var(--pwa-primary);
+  color: #fff;
+}
+.pwa-step.active .pwa-step-dot {
+  background: var(--pwa-secondary);
+  border-color: var(--pwa-secondary);
+  color: #fff;
+  animation: pwa-step-pulse 1.4s ease-in-out infinite;
+}
+.pwa-step.refused .pwa-step-dot {
+  background: var(--pwa-red-bg);
+  border-color: var(--pwa-red-border);
+  color: var(--pwa-red-ink);
+}
+@keyframes pwa-step-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(232,135,10,0.4); }
+  50% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(232,135,10,0); }
+}
+.pwa-step-label {
+  font-size: 10px; font-weight: 500;
+  color: var(--pwa-muted);
+  margin-top: 8px;
+  text-align: center;
+  line-height: 1.2;
+}
+.pwa-step.done .pwa-step-label { color: var(--pwa-ink); font-weight: 600; }
+.pwa-step.active .pwa-step-label { color: var(--pwa-secondary-dark); font-weight: 700; }
+.pwa-step-line {
+  flex: 1;
+  height: 2px;
+  background: var(--pwa-border);
+  margin-top: 17px;
+  transition: background 0.3s;
+}
+.pwa-step-line.done { background: var(--pwa-primary); }
+
+/* Status boxes */
+.pwa-status-box {
+  border-radius: 14px;
+  padding: 16px;
+  border: 1px solid;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.pwa-status-box.amber { background: var(--pwa-amber-bg); border-color: var(--pwa-amber-border); }
+.pwa-status-box.green { background: var(--pwa-green-bg); border-color: var(--pwa-green-border); }
+.pwa-status-box.blue  { background: var(--pwa-blue-bg);  border-color: var(--pwa-blue-border); }
+.pwa-status-box.red   { background: var(--pwa-red-bg);   border-color: var(--pwa-red-border); }
+
+/* Spinner PWA */
+.pwa-spinner {
+  width: 28px; height: 28px;
+  border: 3px solid rgba(192,57,43,0.15);
+  border-top-color: var(--pwa-primary);
+  border-radius: 50%;
+  animation: pwa-spin 0.8s linear infinite;
+}
+@keyframes pwa-spin { to { transform: rotate(360deg); } }
+
+/* Avatar */
+.pwa-avatar {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--pwa-primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Address card */
+.pwa-addr-card {
+  border: 1.5px solid var(--pwa-border);
+  background: var(--pwa-bg-soft);
+  border-radius: var(--pwa-r-md);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.pwa-addr-card.selected {
+  border-color: var(--pwa-primary);
+  background: var(--pwa-primary-light);
+}
+.pwa-addr-card .radio {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--pwa-border);
+  flex-shrink: 0; margin-top: 2px;
+  position: relative;
+  transition: border-color 0.15s;
+}
+.pwa-addr-card.selected .radio { border-color: var(--pwa-primary); }
+.pwa-addr-card.selected .radio::after {
+  content: "";
+  position: absolute; inset: 3px;
+  border-radius: 50%;
+  background: var(--pwa-primary);
+}
+
+/* Bottom bar da sacola */
+.pwa-bottom-bar {
+  position: fixed;
+  bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, #fff 80%, transparent);
+  z-index: 40;
+}
+
+/* Navbar do cardápio */
+.pwa-navbar {
+  background: var(--pwa-primary);
+  color: #fff;
+  padding: 48px 16px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Chip de categoria */
+.pwa-chip {
+  border: none;
+  border-radius: 20px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.pwa-chip.active { background: var(--pwa-primary); color: #fff; }
+.pwa-chip.inactive { background: var(--pwa-bg-input); color: var(--pwa-ink-2); }
+
+/* Modal overlay PWA */
+.pwa-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+}
+.pwa-modal-sheet {
+  background: #fff;
+  border-radius: 22px 22px 0 0;
+  width: 100%;
+  max-height: 90dvh;
+  overflow-y: auto;
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  animation: pwa-slide-up 0.25s ease;
+}
+@keyframes pwa-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
 /* Modal overlay */
+
 .modal-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.45);

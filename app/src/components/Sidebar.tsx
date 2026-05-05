@@ -5,8 +5,11 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
-const navItems = [
+type NavItem = { href: string; label: string; exact?: boolean; badge?: boolean; icon: React.ReactNode }
+
+const navItems: NavItem[] = [
   {
     href: '/dashboard',
     label: 'Painel',
@@ -20,6 +23,14 @@ const navItems = [
     label: 'Pedidos',
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+    ),
+  },
+  {
+    href: '/dashboard/pedidos-online',
+    label: 'Pedidos Online',
+    badge: true,
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
     ),
   },
   {
@@ -55,6 +66,31 @@ const navItems = [
 export default function Sidebar({ nomeEstabelecimento }: { nomeEstabelecimento: string }) {
   const pathname = usePathname()
   const router = useRouter()
+  const [pedidosPendentes, setPedidosPendentes] = useState(0)
+
+  useEffect(() => {
+    const supabase = createClient()
+    const hoje = new Date().toISOString().slice(0, 10)
+
+    const fetchCount = async () => {
+      const { count } = await supabase
+        .from('pedidos')
+        .select('id', { count: 'exact', head: true })
+        .eq('origem', 'pwa')
+        .eq('status_validacao', 'pendente')
+        .gte('created_at', `${hoje}T00:00:00`)
+      setPedidosPendentes(count ?? 0)
+    }
+
+    fetchCount()
+
+    const channel = supabase
+      .channel('sidebar-pedidos-badge')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: 'origem=eq.pwa' }, fetchCount)
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [])
 
   async function handleLogout() {
     const supabase = createClient()
@@ -109,7 +145,12 @@ export default function Sidebar({ nomeEstabelecimento }: { nomeEstabelecimento: 
               }}
             >
               {item.icon}
-              {item.label}
+              <span style={{ flex: 1 }}>{item.label}</span>
+              {item.badge && pedidosPendentes > 0 && (
+                <span style={{ background: '#C0392B', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>
+                  {pedidosPendentes}
+                </span>
+              )}
             </Link>
           )
         })}
