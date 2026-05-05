@@ -44,7 +44,7 @@ export async function GET() {
   const supabase = await createClient()
   const hoje = todayBrasilia()
 
-  const [{ data: rawHoje }, { data: rawMes }, { data: rawAno }, { data: rawItens }] = await Promise.all([
+  const [{ data: rawHoje }, { data: rawMes }, { data: rawAno }, { data: rawItens }, { data: rawApp }] = await Promise.all([
     supabase.from('pedidos').select('total, taxa_entrega, pagamento')
       .eq('desconsiderado', false)
       .gte('created_at', startOfDay(hoje)).lte('created_at', endOfDay(hoje)),
@@ -58,11 +58,16 @@ export async function GET() {
       .select('itens_pedido(quantidade, subtotal, itens_cardapio(categorias(nome)))')
       .eq('desconsiderado', false)
       .gte('created_at', startOfDay(hoje)).lte('created_at', endOfDay(hoje)),
+    supabase.from('pedidos').select('total')
+      .eq('origem', 'pwa')
+      .eq('desconsiderado', false)
+      .gte('created_at', startOfDay(hoje)).lte('created_at', endOfDay(hoje)),
   ])
 
   const h = processPedidos(rawHoje ?? [])
   const m = processPedidos(rawMes ?? [])
   const a = processPedidos(rawAno ?? [])
+  const appHoje = (rawApp ?? []).reduce((acc, p) => ({ count: acc.count + 1, total: acc.total + Number(p.total) }), { count: 0, total: 0 })
 
   // Agrupa por categoria
   const catMap: Record<string, { quantidade: number; valor: number }> = {}
@@ -86,6 +91,8 @@ export async function GET() {
       taxaTotal:   round2(h.taxa),
       taxaMedia:   h.count > 0 ? round2(h.taxa / h.count) : 0,
       porPagamento: h.pag,
+      qtd_app:         appHoje.count,
+      faturamento_app: round2(appHoje.total),
     },
     mes: {
       pedidos:     m.count,

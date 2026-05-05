@@ -5,11 +5,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const supabase = await createClient()
   const { id } = await params
   const body = await request.json()
-  const { categoria_id, nome, descricao, preco, ativo } = body
+  const { categoria_id, nome, descricao, preco, ativo, pwa_visivel } = body
 
   const { data, error } = await supabase
     .from('itens_cardapio')
-    .update({ categoria_id, nome, descricao, preco, ativo })
+    .update({ categoria_id, nome, descricao, preco, ativo, ...(typeof pwa_visivel === 'boolean' && { pwa_visivel }) })
     .eq('id', id)
     .select('*, categorias(id, nome, ordem)')
     .single()

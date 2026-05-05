@@ -20,6 +20,7 @@ type Cliente = {
   id: number
   nome: string
   telefone: string
+  origem?: string | null
   created_at: string
   enderecos: Endereco[]
 }
@@ -393,7 +394,14 @@ export default function ClientesPage() {
                       }}
                       onClick={() => setSelecionado(cliente)}
                     >
-                      <td style={{ padding: '10px 16px', fontWeight: 500 }}>{cliente.nome}</td>
+                      <td style={{ padding: '10px 16px', fontWeight: 500 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                          {cliente.nome}
+                          {cliente.origem === 'pwa' && (
+                            <span style={{ background: '#0F6E56', color: '#fff', fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 6, letterSpacing: 0.5, textTransform: 'uppercase' }}>App</span>
+                          )}
+                        </div>
+                      </td>
                       <td style={{ padding: '10px 16px', color: 'var(--text-muted)' }}>
                         {formatTelefone(cliente.telefone)}
                       </td>

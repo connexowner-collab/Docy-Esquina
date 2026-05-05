@@ -9,6 +9,8 @@ type KpiHoje = {
   taxaTotal: number
   taxaMedia: number
   porPagamento: Record<string, PorPagamento>
+  qtd_app: number
+  faturamento_app: number
 }
 type KpiMes = {
   pedidos: number
@@ -104,11 +106,12 @@ export default function DashboardPage() {
           {/* ── HOJE ── */}
           <SectionTitle>Hoje</SectionTitle>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14 }}>
             <KpiCard label="Pedidos Hoje" value={String(data.hoje.pedidos)} accent="#C0392B" />
             <KpiCard label="Faturamento Hoje" value={fmtMoeda(data.hoje.faturamento)} color="#0F6E56" accent="#0F6E56" />
             <KpiCard label="Taxa Total Hoje" value={fmtMoeda(data.hoje.taxaTotal)} accent="#E8870A" />
             <KpiCard label="Taxa Média Hoje" value={fmtMoeda(data.hoje.taxaMedia)} sub="por pedido" accent="#2563EB" />
+            <KpiCard label="Via App Hoje" value={String(data.hoje.qtd_app)} sub={fmtMoeda(data.hoje.faturamento_app)} color="#0F6E56" accent="#0F6E56" />
           </div>
 
           <SectionTitle>Pagamento Hoje</SectionTitle>

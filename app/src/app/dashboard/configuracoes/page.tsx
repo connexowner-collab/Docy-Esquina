@@ -21,6 +21,9 @@ type Configuracao = {
   km_base: number
   valor_por_km: number
   km_maximo: number
+  pwa_ativo: boolean
+  tempo_limite_validacao_min: number
+  mensagem_fechado: string
 }
 
 export default function ConfiguracoesPage() {
@@ -40,6 +43,9 @@ export default function ConfiguracoesPage() {
     km_base: 2,
     valor_por_km: 2,
     km_maximo: 15,
+    pwa_ativo: true,
+    tempo_limite_validacao_min: 5,
+    mensagem_fechado: 'Estamos fechados no momento. Volte mais tarde!',
   })
   const [buscandoCepOrigem, setBuscandoCepOrigem] = useState(false)
   const [cepOrigemErro, setCepOrigemErro] = useState('')
@@ -391,6 +397,74 @@ export default function ConfiguracoesPage() {
 
             {/* Print config */}
             <PrintConfig />
+
+            {/* PWA / App */}
+            <div style={{ background: '#fff', borderRadius: 16, padding: 28, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                <div style={{ width: 36, height: 36, background: '#E8F5E9', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F6E56" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, color: '#1a1a1a', textTransform: 'uppercase' }}>Configurações do App (PWA)</span>
+              </div>
+
+              {/* Toggle pwa_ativo */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: form.pwa_ativo ? '#E8F5E9' : '#FEF2F2', borderRadius: 12, marginBottom: 16, border: `1.5px solid ${form.pwa_ativo ? '#0F6E56' : '#C0392B'}` }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>App aberto para pedidos</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {form.pwa_ativo ? 'O app está aceitando pedidos no momento' : 'O app está fechado para novos pedidos'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForm(p => ({ ...p, pwa_ativo: !p.pwa_ativo }))}
+                  style={{
+                    width: 52, height: 28, borderRadius: 14, border: 'none', cursor: 'pointer',
+                    background: form.pwa_ativo ? '#0F6E56' : '#ccc',
+                    position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: 3, left: form.pwa_ativo ? 27 : 3,
+                    width: 22, height: 22, borderRadius: '50%', background: '#fff',
+                    transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  }} />
+                </button>
+              </div>
+
+              {/* Tempo limite */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#888', letterSpacing: 0.6, marginBottom: 6, textTransform: 'uppercase' }}>
+                  Tempo Limite para Aceitar Pedido (min)
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <input
+                    type="number"
+                    min={1}
+                    max={60}
+                    name="tempo_limite_validacao_min"
+                    value={form.tempo_limite_validacao_min}
+                    onChange={handle}
+                    style={{ width: 100, border: '1.5px solid #e8e8ee', borderRadius: 10, padding: '10px 14px', fontSize: 20, fontWeight: 800, color: '#1a1a1a', outline: 'none', background: '#fff', boxSizing: 'border-box', textAlign: 'center' }}
+                  />
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>minutos — pedidos sem resposta serão recusados automaticamente</span>
+                </div>
+              </div>
+
+              {/* Mensagem fechado */}
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#888', letterSpacing: 0.6, marginBottom: 6, textTransform: 'uppercase' }}>
+                  Mensagem quando Fechado
+                </label>
+                <input
+                  className="input"
+                  name="mensagem_fechado"
+                  value={form.mensagem_fechado ?? ''}
+                  onChange={handle}
+                  placeholder="Ex: Estamos fechados no momento. Volte mais tarde!"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Right column */}
