@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -112,7 +111,7 @@ export default function Sidebar({ nomeEstabelecimento }: { nomeEstabelecimento: 
     }}>
       {/* Logo */}
       <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-        <Image src="/LOGO.png" alt={nomeEstabelecimento} width={80} height={80} style={{ borderRadius: '50%', objectFit: 'cover' }} />
+        <img src="/LOGO.png" alt={nomeEstabelecimento} style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', objectPosition: 'center 45%' }} />
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', letterSpacing: -0.3 }}>{nomeEstabelecimento}</div>
           <div style={{ fontSize: 9, fontWeight: 600, color: '#888', letterSpacing: 1.5, marginTop: 2, textTransform: 'uppercase' }}>Painel Admin</div>
