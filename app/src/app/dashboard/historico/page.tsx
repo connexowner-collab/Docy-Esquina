@@ -17,6 +17,7 @@ type Pedido = {
   troco: number | null
   observacoes: string | null
   distancia_km: number
+  origem?: string | null
   desconsiderado?: boolean
   clientes: ClientePedido
   enderecos: EnderecoPedido
@@ -148,6 +149,7 @@ export default function HistoricoPage() {
       'Pagamento': pagamentoLabel[p.pagamento] ?? p.pagamento,
       'Troco': p.troco ? Number(p.troco) : '',
       'Observações': p.observacoes ?? '',
+      'Origem': p.origem === 'pwa' ? 'App' : 'Portal',
     }))
     const ws = utils.json_to_sheet(rows)
     const wb = utils.book_new()
@@ -239,16 +241,17 @@ export default function HistoricoPage() {
               <th style={{ padding: '10px 12px', textAlign: 'right' }}>Entrega</th>
               <th style={{ padding: '10px 12px', textAlign: 'right' }}>Total</th>
               <th style={{ padding: '10px 12px', textAlign: 'center' }}>Pagamento</th>
+              <th style={{ padding: '10px 12px', textAlign: 'center' }}>Origem</th>
               <th style={{ padding: '10px 12px', textAlign: 'center' }}>Ações</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Carregando...</td></tr>
+              <tr><td colSpan={9} style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Carregando...</td></tr>
             ) : pedidos.length === 0 ? (
-              <tr><td colSpan={8} style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum pedido encontrado...</td></tr>
+              <tr><td colSpan={9} style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum pedido encontrado...</td></tr>
             ) : pedidos.map(p => (
-              <tr key={p.id} className="table-row-alt" style={{ borderBottom: '0.5px solid #eee', opacity: p.desconsiderado ? 0.45 : 1 }}>
+              <tr key={p.id} className="table-row-alt" style={{ borderBottom: '0.5px solid #eee', opacity: p.desconsiderado ? 0.45 : 1, background: p.origem === 'pwa' ? 'rgba(15,110,86,0.03)' : undefined }}>
                 <td style={{ padding: '10px 12px', fontWeight: 700, color: p.desconsiderado ? '#999' : '#C0392B' }}>
                   <span style={{ textDecoration: p.desconsiderado ? 'line-through' : 'none' }}>#{p.numero_seq}</span>
                   {p.desconsiderado && (
@@ -274,6 +277,13 @@ export default function HistoricoPage() {
                   <span className={`badge ${pagamentoBadge[p.pagamento] ?? 'badge-gray'}`}>
                     {pagamentoLabel[p.pagamento] ?? p.pagamento}
                   </span>
+                </td>
+                <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                  {p.origem === 'pwa' ? (
+                    <span style={{ background: '#0F6E56', color: '#fff', fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6, letterSpacing: 0.5 }}>App</span>
+                  ) : (
+                    <span style={{ color: '#bbb', fontSize: 11 }}>Portal</span>
+                  )}
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                   <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center' }}>

@@ -10,6 +10,7 @@ type ItemCardapio = {
   descricao: string | null
   preco: number
   ativo: boolean
+  pwa_visivel: boolean
   categorias: Categoria
 }
 
@@ -35,6 +36,7 @@ export default function CardapioPage() {
   const [savingItem, setSavingItem] = useState(false)
   const [savingCat, setSavingCat] = useState(false)
   const [togglingId, setTogglingId] = useState<number | null>(null)
+  const [togglingPwaId, setTogglingPwaId] = useState<number | null>(null)
   const [error, setError] = useState('')
 
   const fetchData = useCallback(async () => {
@@ -130,6 +132,23 @@ export default function CardapioPage() {
     }
   }
 
+  async function handleTogglePwa(item: ItemCardapio) {
+    setTogglingPwaId(item.id)
+    try {
+      const res = await fetch(`/api/cardapio/${item.id}/pwa`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pwa_visivel: !item.pwa_visivel }),
+      })
+      if (!res.ok) throw new Error('Erro ao alterar visibilidade no app')
+      await fetchData()
+    } catch {
+      alert('Erro ao alterar visibilidade no app')
+    } finally {
+      setTogglingPwaId(null)
+    }
+  }
+
   async function handleSaveCategoria(e: React.FormEvent) {
     e.preventDefault()
     if (!catForm.trim()) return
@@ -218,6 +237,7 @@ export default function CardapioPage() {
                     <th style={{ padding: '10px 16px', textAlign: 'left' }}>Descrição</th>
                     <th style={{ padding: '10px 16px', textAlign: 'right' }}>Preço</th>
                     <th style={{ padding: '10px 16px', textAlign: 'center' }}>Status</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'center' }}>App</th>
                     <th style={{ padding: '10px 16px', textAlign: 'center' }}>Ações</th>
                   </tr>
                 </thead>
@@ -235,6 +255,26 @@ export default function CardapioPage() {
                         <span className={`badge ${item.ativo ? 'badge-green' : 'badge-gray'}`}>
                           {item.ativo ? 'Ativo' : 'Inativo'}
                         </span>
+                      </td>
+                      <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                        <button
+                          onClick={() => handleTogglePwa(item)}
+                          disabled={togglingPwaId === item.id}
+                          title={item.pwa_visivel ? 'Ocultar no App' : 'Mostrar no App'}
+                          style={{
+                            background: item.pwa_visivel ? '#0F6E56' : '#e5e5e5',
+                            color: item.pwa_visivel ? '#fff' : '#888',
+                            border: 'none',
+                            borderRadius: 6,
+                            padding: '3px 10px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            opacity: togglingPwaId === item.id ? 0.5 : 1,
+                          }}
+                        >
+                          {togglingPwaId === item.id ? '...' : item.pwa_visivel ? '✓ Visível' : 'Oculto'}
+                        </button>
                       </td>
                       <td style={{ padding: '10px 16px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
