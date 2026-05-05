@@ -67,7 +67,7 @@ export async function GET() {
   const h = processPedidos(rawHoje ?? [])
   const m = processPedidos(rawMes ?? [])
   const a = processPedidos(rawAno ?? [])
-  const appHoje = (rawApp ?? []).reduce((acc, p) => ({ count: acc.count + 1, total: acc.total + Number(p.total) }), { count: 0, total: 0 })
+  const appHoje = (rawApp ?? []).reduce<{ count: number; total: number }>((acc, p) => ({ count: acc.count + 1, total: acc.total + Number(p.total) }), { count: 0, total: 0 })
 
   // Agrupa por categoria
   const catMap: Record<string, { quantidade: number; valor: number }> = {}
