@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
       alt = digits.slice(0, 2) + '9' + digits.slice(2) // adiciona o 9
     }
     query = alt !== digits
-      ? query.or(`telefone.ilike.%${digits}%,telefone.ilike.%${alt}%`)
-      : query.ilike('telefone', `%${digits}%`)
+      ? query.or(`telefone.eq.${digits},telefone.eq.${alt}`)
+      : query.eq('telefone', digits)
   }
 
   const { data, error } = await query
