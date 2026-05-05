@@ -109,16 +109,19 @@ export default function PwaCardapioPage() {
     <div className="pwa-screen" style={{ paddingBottom: cartCount > 0 ? 90 : 0 }}>
       {/* Navbar */}
       <div className="pwa-navbar">
-        <div>
+        <button onClick={() => router.push('/pwa')} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', padding: 0, lineHeight: 1 }}>←</button>
+        <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 12, opacity: 0.8 }}>Olá, {clienteNome}!</div>
           <div style={{ fontSize: 17, fontWeight: 600 }}>Cardápio</div>
         </div>
-        {cartCount > 0 && (
+        {cartCount > 0 ? (
           <button
             onClick={() => router.push('/pwa/sacola')}
             style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 20, padding: '7px 14px', color: '#fff', fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
             🛒 {cartCount} · {fmtMoeda(cartTotal)}
           </button>
+        ) : (
+          <div style={{ width: 32 }} />
         )}
       </div>
 
