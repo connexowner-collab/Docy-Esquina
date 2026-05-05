@@ -13,7 +13,19 @@ export async function GET(request: NextRequest) {
     .order('nome', { ascending: true })
 
   if (nome) query = query.ilike('nome', `%${nome}%`)
-  if (telefone) query = query.ilike('telefone', `%${telefone.replace(/\D/g, '')}%`)
+  if (telefone) {
+    const digits = telefone.replace(/\D/g, '')
+    // Gera variante com/sem o dígito 9 após o DDD
+    let alt = digits
+    if (digits.length === 11 && digits[2] === '9') {
+      alt = digits.slice(0, 2) + digits.slice(3) // remove o 9
+    } else if (digits.length === 10) {
+      alt = digits.slice(0, 2) + '9' + digits.slice(2) // adiciona o 9
+    }
+    query = alt !== digits
+      ? query.or(`telefone.ilike.%${digits}%,telefone.ilike.%${alt}%`)
+      : query.ilike('telefone', `%${digits}%`)
+  }
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
