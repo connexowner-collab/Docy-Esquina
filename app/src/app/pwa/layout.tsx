@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   description: 'Peça seu lanche favorito',
   manifest: '/pwa/manifest.json',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Docy Esquina' },
+  icons: {
+    apple: '/LOGO.png',
+    icon: '/LOGO.png',
+  },
 }
 
 export const viewport: Viewport = {
