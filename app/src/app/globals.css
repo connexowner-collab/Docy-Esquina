@@ -197,6 +197,10 @@ body {
   margin-bottom: 14px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.25);
   font-size: 32px;
+  /* Safari fix: força GPU layer para overflow+border-radius funcionar */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
 }
 .pwa-hero h1 {
   font-size: 22px; font-weight: 600;

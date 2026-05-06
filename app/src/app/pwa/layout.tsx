@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import PwaInstallBanner from './PwaInstallBanner'
 
 export const metadata: Metadata = {
   title: 'Docy Esquina',
@@ -23,6 +24,7 @@ export default function PwaLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="pwa-root">
       {children}
+      <PwaInstallBanner />
     </div>
   )
 }
