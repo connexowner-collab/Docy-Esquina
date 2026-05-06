@@ -225,7 +225,11 @@ export default function PedidosOnlinePage() {
             <span style={{ background: pedido.pagamento === 'pix' ? '#E1F5EE' : pedido.pagamento === 'dinheiro' ? '#FDF3E3' : '#E6F1FB', color: pedido.pagamento === 'pix' ? '#0F6E56' : pedido.pagamento === 'dinheiro' ? '#B8600A' : '#185FA5', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
               {pedido.pagamento.toUpperCase()}
             </span>
-            {pedido.troco && <span style={{ fontSize: 12, color: '#888' }}>Troco p/ {fmtMoeda(pedido.troco)}</span>}
+            {pedido.troco != null && pedido.troco > 0 && (
+              <span style={{ fontSize: 12, color: '#888' }}>
+                Paga c/ {fmtMoeda(pedido.troco)} → Troco: {fmtMoeda(pedido.troco - pedido.total)}
+              </span>
+            )}
           </div>
 
           {pedido.observacoes && (

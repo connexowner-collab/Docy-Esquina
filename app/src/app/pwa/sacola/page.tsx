@@ -203,14 +203,34 @@ export default function PwaSacolaPage() {
 
           {pagamento === 'dinheiro' && (
             <div className="pwa-field" style={{ marginTop: 12, marginBottom: 0 }}>
-              <label>Troco para quanto?</label>
+              <label>Troco para quanto? <span style={{ fontWeight: 400, color: 'var(--pwa-muted)', fontSize: 11 }}>(valor que você vai pagar)</span></label>
               <input
                 className="pwa-input"
-                placeholder="Ex: 50,00 (deixe vazio se não precisar)"
+                placeholder="Ex: 100,00 (deixe vazio se não precisar)"
                 inputMode="decimal"
                 value={troco}
                 onChange={e => setTroco(e.target.value)}
               />
+              {(() => {
+                const trocoPago = Number(troco.replace(',', '.'))
+                const trocoCalculado = trocoPago - total
+                if (trocoPago > 0 && trocoCalculado > 0) {
+                  return (
+                    <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', background: 'var(--pwa-amber-bg)', border: '1px solid var(--pwa-amber-border)', borderRadius: 8, padding: '8px 12px' }}>
+                      <span style={{ fontSize: 13, color: 'var(--pwa-amber-ink, #B7800A)' }}>Troco a receber:</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--pwa-amber-ink, #B7800A)' }}>{fmtMoeda(trocoCalculado)}</span>
+                    </div>
+                  )
+                }
+                if (trocoPago > 0 && trocoCalculado <= 0 && troco !== '') {
+                  return (
+                    <p style={{ fontSize: 12, color: 'var(--pwa-red-ink)', marginTop: 6 }}>
+                      Valor menor que o total do pedido ({fmtMoeda(total)})
+                    </p>
+                  )
+                }
+                return null
+              })()}
             </div>
           )}
         </div>

@@ -126,8 +126,8 @@ function buildComandaHTML(pedido: DadosPedido): string {
     linha('Taxa de entrega:', fmtMoeda(pedido.taxa_entrega)),
     linha('TOTAL:', fmtMoeda(pedido.total)),
     ...(pedido.pagamento === 'dinheiro' && pedido.troco != null ? [
-      linha('Recebido:', fmtMoeda(pedido.total + pedido.troco)),
-      linha('Troco:', fmtMoeda(pedido.troco)),
+      linha('Recebido:', fmtMoeda(pedido.troco)),
+      linha('Troco:', fmtMoeda(pedido.troco - pedido.total)),
     ] : []),
     SEP1,
     `Pagamento: ${pedido.pagamento.toUpperCase()}${pedido.pago ? ' - PAGO' : ''}`,

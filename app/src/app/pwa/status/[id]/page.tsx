@@ -17,6 +17,7 @@ type Pedido = {
   taxa_entrega: number
   total: number
   pagamento: string
+  troco?: number | null
   tipo_entrega: 'entrega' | 'retirada'
   clientes: { nome: string; telefone: string }
   enderecos: { logradouro: string; numero: string; bairro: string } | null
@@ -248,7 +249,9 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
             tipo === 'retirada'
               ? { label: 'Retirada', value: 'No local — sem taxa de entrega' }
               : { label: 'Endereço', value: `${pedido.enderecos?.logradouro}, ${pedido.enderecos?.numero} — ${pedido.enderecos?.bairro}` },
-            { label: 'Pagamento', value: pedido.pagamento.charAt(0).toUpperCase() + pedido.pagamento.slice(1) },
+            { label: 'Pagamento', value: pedido.pagamento === 'dinheiro' && pedido.troco
+              ? `Dinheiro — Paga c/ ${fmtMoeda(pedido.troco)} (troco: ${fmtMoeda(pedido.troco - pedido.total)})`
+              : pedido.pagamento.charAt(0).toUpperCase() + pedido.pagamento.slice(1) },
           ].map(({ label, value }) => (
             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 12.5, borderBottom: '1px solid #F2F0E8' }}>
               <span style={{ color: 'var(--pwa-muted)' }}>{label}</span>
