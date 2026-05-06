@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+export async function GET(req: NextRequest) {
+  const clienteId = req.nextUrl.searchParams.get('clienteId')
+  if (!clienteId) return NextResponse.json({ error: 'clienteId obrigatório' }, { status: 400 })
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('pedidos')
+    .select('id, numero_seq, status_pedido, total, created_at, tipo_entrega')
+    .eq('cliente_id', Number(clienteId))
+    .eq('origem', 'pwa')
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ pedidos: data ?? [] })
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { clienteId, enderecoId, tipoEntrega, itens, pagamento, troco, observacoes, taxaEntrega, subtotal, total } = body

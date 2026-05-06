@@ -259,15 +259,24 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
 
         {/* Ações */}
         <div style={{ padding: '0 12px' }}>
-          {status === 'entregue' || status === 'recusado' ? (
-            <button className="pwa-btn pwa-btn-primary" onClick={() => { sessionStorage.removeItem('pwa_cart'); router.push('/pwa/cardapio') }}>
-              Fazer novo pedido
-            </button>
-          ) : (
-            <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--pwa-muted)', padding: '8px 0' }}>
+          {status !== 'entregue' && status !== 'recusado' && (
+            <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--pwa-muted)', padding: '4px 0 12px' }}>
               Esta página atualiza automaticamente em tempo real
             </div>
           )}
+          <button
+            className="pwa-btn pwa-btn-primary"
+            onClick={() => { sessionStorage.removeItem('pwa_cart'); router.push('/pwa/cardapio') }}
+          >
+            🛒 Fazer novo pedido
+          </button>
+          <button
+            className="pwa-btn pwa-btn-ghost"
+            style={{ marginTop: 8 }}
+            onClick={() => router.push('/pwa')}
+          >
+            ← Início
+          </button>
         </div>
       </div>
     </div>

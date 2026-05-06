@@ -28,7 +28,44 @@ type Endereco = {
   cep?: string
 }
 
-type Step = 'phone' | 'loading' | 'found' | 'not-found'
+type PedidoResumo = {
+  id: number
+  numero_seq: number
+  status_pedido: string
+  total: number
+  created_at: string
+  tipo_entrega: 'entrega' | 'retirada'
+}
+
+type Step = 'phone' | 'loading' | 'menu' | 'found' | 'not-found'
+
+const STATUS_LABEL: Record<string, string> = {
+  pendente: 'Aguardando confirmação',
+  em_preparo: 'Em preparo',
+  em_entrega: 'Saiu para entrega',
+  entregue: 'Entregue',
+  recusado: 'Recusado',
+}
+
+const STATUS_COR: Record<string, string> = {
+  pendente: '#B7800A',
+  em_preparo: '#1A7A4A',
+  em_entrega: '#1A5FA0',
+  entregue: '#1A7A4A',
+  recusado: '#C0392B',
+}
+
+const STATUS_BG: Record<string, string> = {
+  pendente: '#FFF8E6',
+  em_preparo: '#E8F9EF',
+  em_entrega: '#E8F0FC',
+  entregue: '#E8F9EF',
+  recusado: '#FDECEA',
+}
+
+function isAtivo(status: string) {
+  return status !== 'entregue' && status !== 'recusado'
+}
 
 export default function PwaIdentPage() {
   const router = useRouter()
@@ -36,6 +73,7 @@ export default function PwaIdentPage() {
   const [rawDigits, setRawDigits] = useState('')
   const [step, setStep] = useState<Step>('phone')
   const [cliente, setCliente] = useState<ClienteData | null>(null)
+  const [pedidos, setPedidos] = useState<PedidoResumo[]>([])
   const [selectedEnd, setSelectedEnd] = useState<number | null>(null)
   const [config, setConfig] = useState<{ aberto: boolean; nomeEstabelecimento: string; mensagemFechado: string } | null>(null)
 
@@ -73,7 +111,10 @@ export default function PwaIdentPage() {
       if (res.ok && data.encontrado) {
         setCliente(data)
         setSelectedEnd(data.enderecos?.[0]?.id ?? null)
-        setStep('found')
+        const ordersRes = await fetch(`/api/pwa/pedidos?clienteId=${data.clienteId}`)
+        const ordersData = await ordersRes.json()
+        setPedidos(ordersData.pedidos ?? [])
+        setStep('menu')
       } else {
         setStep('not-found')
       }
@@ -85,11 +126,11 @@ export default function PwaIdentPage() {
   function handlePhoneChange(v: string) {
     const digits = v.replace(/\D/g, '').slice(0, 11)
     setRawDigits(digits)
-    if (step === 'found') {
-      // Se o usuário editar o número na tela de cliente encontrado, volta a buscar
+    if (step === 'found' || step === 'menu') {
       if (digits.length < 10) {
         setStep('phone')
         setCliente(null)
+        setPedidos([])
       } else {
         buscarCliente(digits)
       }
@@ -228,6 +269,9 @@ export default function PwaIdentPage() {
     )
   }
 
+  const pedidosAtivos = pedidos.filter(p => isAtivo(p.status_pedido))
+  const pedidosHistorico = pedidos.filter(p => !isAtivo(p.status_pedido))
+
   return (
     <div className="pwa-screen">
       {/* Hero */}
@@ -287,15 +331,121 @@ export default function PwaIdentPage() {
           </>
         )}
 
-        {/* STEP: cliente encontrado */}
+        {/* STEP: menu de opções */}
+        {step === 'menu' && cliente && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+              <div className="pwa-avatar">{cliente.nome.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--pwa-ink)' }}>Olá, {cliente.nome.split(' ')[0]}! 👋</div>
+                <div style={{ fontSize: 12, color: 'var(--pwa-muted)' }}>{formatPhone(rawDigits)}</div>
+              </div>
+              <button
+                onClick={() => { setStep('phone'); setRawDigits(''); setPedidos([]); setTimeout(() => inputRef.current?.focus(), 100) }}
+                style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--pwa-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, textDecoration: 'underline' }}
+              >
+                trocar
+              </button>
+            </div>
+
+            {/* Pedidos em andamento */}
+            {pedidosAtivos.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--pwa-muted)', margin: '0 0 8px' }}>
+                  PEDIDO EM ANDAMENTO
+                </p>
+                {pedidosAtivos.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => router.push(`/pwa/status/${p.id}`)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                      background: STATUS_BG[p.status_pedido] ?? '#F5F5F5',
+                      border: `1.5px solid ${STATUS_COR[p.status_pedido] ?? '#ccc'}`,
+                      borderRadius: 14, padding: '12px 14px', marginBottom: 8,
+                      cursor: 'pointer', textAlign: 'left',
+                    }}
+                  >
+                    <div style={{ fontSize: 22 }}>
+                      {p.status_pedido === 'pendente' ? '⏳' : p.status_pedido === 'em_preparo' ? '🍳' : '🛵'}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: STATUS_COR[p.status_pedido] }}>
+                        Pedido #{String(p.numero_seq).padStart(4, '0')}
+                      </div>
+                      <div style={{ fontSize: 12, color: STATUS_COR[p.status_pedido], opacity: 0.85 }}>
+                        {STATUS_LABEL[p.status_pedido]}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--pwa-ink-2)' }}>
+                      R$ {Number(p.total).toFixed(2).replace('.', ',')}
+                    </div>
+                    <div style={{ fontSize: 16, color: STATUS_COR[p.status_pedido] }}>›</div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Fazer novo pedido */}
+            <button
+              className="pwa-btn pwa-btn-primary"
+              onClick={() => setStep('found')}
+              style={{ marginBottom: pedidosHistorico.length > 0 ? 16 : 0 }}
+            >
+              🛒 Fazer novo pedido
+            </button>
+
+            {/* Histórico */}
+            {pedidosHistorico.length > 0 && (
+              <div>
+                <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--pwa-muted)', margin: '0 0 8px' }}>
+                  HISTÓRICO
+                </p>
+                {pedidosHistorico.slice(0, 3).map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => router.push(`/pwa/status/${p.id}`)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                      background: '#FAFAF8', border: '1px solid #EFEDE6',
+                      borderRadius: 12, padding: '10px 12px', marginBottom: 6,
+                      cursor: 'pointer', textAlign: 'left',
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--pwa-ink)' }}>
+                        Pedido #{String(p.numero_seq).padStart(4, '0')}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--pwa-muted)' }}>
+                        {new Date(p.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--pwa-ink-2)' }}>
+                      R$ {Number(p.total).toFixed(2).replace('.', ',')}
+                    </div>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6,
+                      background: STATUS_BG[p.status_pedido] ?? '#eee',
+                      color: STATUS_COR[p.status_pedido] ?? '#666',
+                    }}>
+                      {p.status_pedido === 'entregue' ? 'ENTREGUE' : 'RECUSADO'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* STEP: cliente encontrado — seleção de endereço */}
         {step === 'found' && cliente && (
           <>
-            <h2 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 4px' }}>Olá, {cliente.nome.split(' ')[0]}! 👋</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 4px' }}>Escolha o endereço</h2>
             <p style={{ fontSize: 13, color: 'var(--pwa-muted)', margin: '0 0 14px' }}>
-              Identificamos sua conta. Escolha o endereço de entrega.
+              Para onde devemos entregar?
             </p>
 
-            {/* Campo de telefone editável — permanece visível para troca fácil */}
+            {/* Campo de telefone editável */}
             <div
               className="pwa-phone-display"
               onClick={() => inputRef.current?.focus()}
@@ -312,18 +462,6 @@ export default function PwaIdentPage() {
                 style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
               />
               <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--pwa-muted)', fontWeight: 400 }}>toque para trocar</span>
-            </div>
-
-            {/* Box cliente */}
-            <div style={{ background: 'var(--pwa-amber-bg)', border: '1px solid var(--pwa-amber-border)', borderRadius: 'var(--pwa-r-lg)', padding: 14, display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-              <div className="pwa-avatar">{cliente.nome.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 15 }}>{cliente.nome}</div>
-                <div style={{ fontSize: 12, color: 'var(--pwa-muted)' }}>{formatPhone(cliente.telefone)}</div>
-              </div>
-              <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 6, background: 'var(--pwa-green-bg)', color: 'var(--pwa-green-ink)' }}>
-                CLIENTE
-              </span>
             </div>
 
             {/* Endereços */}
@@ -419,6 +557,11 @@ export default function PwaIdentPage() {
               disabled={!selectedEnd}
               onClick={() => continuarComCliente(cliente, selectedEnd!)}>
               Continuar →
+            </button>
+
+            <button className="pwa-btn pwa-btn-ghost" style={{ marginTop: 6 }}
+              onClick={() => setStep('menu')}>
+              ← Voltar
             </button>
           </>
         )}
