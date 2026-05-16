@@ -26,6 +26,7 @@ export default function PwaSacolaPage() {
   const [erro, setErro] = useState('')
   const [taxaEntregaBase, setTaxaEntregaBase] = useState(0)
   const [carregandoTaxa, setCarregandoTaxa] = useState(true)
+  const [distanciaKm, setDistanciaKm] = useState<number | null>(null)
 
   useEffect(() => {
     const clienteRaw = localStorage.getItem('pwa_cliente')
@@ -43,18 +44,18 @@ export default function PwaSacolaPage() {
     const cartRaw = sessionStorage.getItem('pwa_cart')
     if (cartRaw) setCart(JSON.parse(cartRaw))
 
-    // Calcula taxa de entrega real baseada na distância do cliente
+    // Taxa de entrega: usa distancia_km salva no cadastro (sem recalcular)
     const calcularTaxa = async (endereco?: Endereco) => {
       setCarregandoTaxa(true)
       try {
         const body: Record<string, unknown> = {}
         if (endereco?.distancia_km != null && endereco.distancia_km > 0) {
-          // Distância já salva no cadastro → usa diretamente
+          // KM já calculado no cadastro → só aplica a fórmula, sem chamar Google
           body.km_manual = endereco.distancia_km
+          setDistanciaKm(endereco.distancia_km)
         } else if (endereco?.bairro) {
-          // Fallback: calcula pelo bairro/CEP
+          // Sem KM salvo → tenta pelo bairro (taxa fixa por bairro se existir)
           body.bairro = endereco.bairro
-          if (endereco?.cep) body.cep_destino = endereco.cep
         }
 
         if (Object.keys(body).length > 0) {
@@ -69,8 +70,8 @@ export default function PwaSacolaPage() {
             return
           }
         }
-        // Fallback final: taxa mínima das configurações
-        const cfg = await fetch('/api/pwa/config').then(r => r.json())
+        // Fallback: taxa mínima das configurações
+        const cfg = await fetch('/api/pwa/config').then(r => r.json()).catch(() => ({ taxaMinima: 5 }))
         setTaxaEntregaBase(cfg.taxaMinima ?? 5)
       } catch {
         const cfg = await fetch('/api/pwa/config').then(r => r.json()).catch(() => ({ taxaMinima: 5 }))
@@ -291,7 +292,7 @@ export default function PwaSacolaPage() {
           </div>
           {tipoEntrega === 'entrega' && (
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 12, opacity: 0.8 }}>
-              <span>Taxa de entrega</span>
+              <span>Taxa de entrega{distanciaKm ? ` (${distanciaKm.toFixed(1).replace('.', ',')} km)` : ''}</span>
               <span>{carregandoTaxa ? '...' : fmtMoeda(taxaEntrega)}</span>
             </div>
           )}

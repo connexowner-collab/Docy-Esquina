@@ -53,5 +53,21 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json(data, { status: 201 })
+  // Calcula taxa para retornar ao frontend (popup)
+  let taxa: number | null = null
+  if (distancia_km !== null) {
+    const { data: taxaBairro } = await supabase.from('taxas_bairro').select('taxa').eq('bairro', bairro.trim()).maybeSingle()
+    if (taxaBairro?.taxa != null) {
+      taxa = Number(taxaBairro.taxa)
+    } else {
+      const { data: cfg } = await supabase.from('configuracoes').select('taxa_minima,km_base,valor_por_km').single()
+      if (cfg) {
+        taxa = Number(cfg.taxa_minima ?? 5) +
+          Math.max(0, distancia_km - Number(cfg.km_base ?? 2)) * Number(cfg.valor_por_km ?? 2)
+        taxa = Math.round(taxa * 100) / 100
+      }
+    }
+  }
+
+  return NextResponse.json({ ...data, taxa }, { status: 201 })
 }

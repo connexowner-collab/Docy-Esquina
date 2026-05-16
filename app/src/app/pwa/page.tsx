@@ -26,6 +26,7 @@ type Endereco = {
   bairro: string
   referencia?: string
   cep?: string
+  distancia_km?: number | null
 }
 
 type PedidoResumo = {
@@ -87,6 +88,9 @@ export default function PwaIdentPage() {
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [cadastrando, setCadastrando] = useState(false)
   const [erroForm, setErroForm] = useState('')
+
+  // Popup de frete
+  const [fretePopup, setFretePopup] = useState<{ distancia_km: number | null; taxa: number | null; onConfirmar: () => void } | null>(null)
 
   // Adicionar endereço a cliente existente
   const [addingAddress, setAddingAddress] = useState(false)
@@ -204,9 +208,19 @@ export default function PwaIdentPage() {
           complemento: novoComplemento || undefined,
           bairro: novoBairro,
           cep: novoCep || undefined,
+          distancia_km: data.distancia_km ?? null,
         }],
       }
-      continuarComCliente(clienteData, data.enderecoId)
+
+      // Mostra popup com taxa de entrega antes de ir ao cardápio
+      setFretePopup({
+        distancia_km: data.distancia_km ?? null,
+        taxa: data.taxa ?? null,
+        onConfirmar: () => {
+          setFretePopup(null)
+          continuarComCliente(clienteData, data.enderecoId)
+        },
+      })
     } catch {
       setErroForm('Erro de conexão')
     } finally {
@@ -239,12 +253,29 @@ export default function PwaIdentPage() {
       const data = await res.json()
       if (!res.ok) { setAddErro(data.error || 'Erro ao salvar'); return }
 
-      const novoEndereco: Endereco = { id: data.id, logradouro: data.logradouro, numero: data.numero, complemento: data.complemento || undefined, bairro: data.bairro, cep: data.cep || undefined }
+      const novoEndereco: Endereco = {
+        id: data.id,
+        logradouro: data.logradouro,
+        numero: data.numero,
+        complemento: data.complemento || undefined,
+        bairro: data.bairro,
+        cep: data.cep || undefined,
+        distancia_km: data.distancia_km ?? null,
+      }
       const clienteAtualizado = { ...cliente, enderecos: [...cliente.enderecos, novoEndereco] }
       setCliente(clienteAtualizado)
       setSelectedEnd(novoEndereco.id)
       setAddingAddress(false)
       setAddCep(''); setAddLogradouro(''); setAddNumero(''); setAddBairro(''); setAddComplemento('')
+
+      // Mostra popup com taxa de entrega
+      if (data.distancia_km != null || data.taxa != null) {
+        setFretePopup({
+          distancia_km: data.distancia_km ?? null,
+          taxa: data.taxa ?? null,
+          onConfirmar: () => setFretePopup(null),
+        })
+      }
     } catch {
       setAddErro('Erro de conexão')
     } finally {
@@ -274,6 +305,51 @@ export default function PwaIdentPage() {
 
   return (
     <div className="pwa-screen">
+
+      {/* ── Popup de taxa de entrega ─────────────────────────────────────────── */}
+      {fretePopup && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 300,
+          background: 'rgba(0,0,0,0.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 24, padding: '28px 24px',
+            textAlign: 'center', width: '100%', maxWidth: 340,
+            animation: 'pwa-notif-pop 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🛵</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#1A1A1A', marginBottom: 8 }}>
+              Taxa de entrega calculada
+            </div>
+            {fretePopup.distancia_km != null && (
+              <div style={{ fontSize: 14, color: '#666', marginBottom: 4 }}>
+                Distância: <strong>{fretePopup.distancia_km.toFixed(1).replace('.', ',')} km</strong>
+              </div>
+            )}
+            {fretePopup.taxa != null ? (
+              <div style={{
+                fontSize: 22, fontWeight: 800, color: '#C0530A',
+                background: '#FFF4EC', borderRadius: 12, padding: '10px 20px',
+                margin: '12px 0 20px',
+              }}>
+                R$ {fretePopup.taxa.toFixed(2).replace('.', ',')}
+              </div>
+            ) : (
+              <div style={{ fontSize: 14, color: '#888', margin: '12px 0 20px' }}>
+                Taxa calculada conforme distância
+              </div>
+            )}
+            <button
+              className="pwa-btn pwa-btn-primary"
+              onClick={fretePopup.onConfirmar}
+            >
+              Entendido, ver cardápio →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Hero */}
       <div className="pwa-hero">
         <div className="pwa-hero-logo">
