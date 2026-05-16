@@ -11,7 +11,8 @@ type Categoria = { id: number; nome: string; ordem: number }
 type ItemCardapio = { id: number; categoria_id: number; nome: string; descricao: string | null; preco: number; ativo: boolean; categorias: Categoria }
 type ItemPedido = { item: ItemCardapio; quantidade: number; observacao?: string }
 type Pagamento = 'dinheiro' | 'pix' | 'debito' | 'credito'
-type PedidoCriado = { id: number; numero_seq: number; total: number; pagamento: string; troco?: number | null; pago?: boolean; clientes: Cliente; itens_pedido: Array<{ nome_snapshot: string; quantidade: number; preco_snapshot: number; observacao?: string | null }> }
+type Modo = 'delivery' | 'local'
+type PedidoCriado = { id: number; numero_seq: number; total: number; pagamento: string; troco?: number | null; pago?: boolean; clientes?: Cliente | null; nome_local?: string | null; itens_pedido: Array<{ nome_snapshot: string; quantidade: number; preco_snapshot: number; observacao?: string | null }> }
 
 type EnderecoForm = { cep: string; logradouro: string; numero: string; complemento: string; bairro: string; cidade: string; uf: string; referencia: string; distancia_km: string }
 const emptyEnderecoForm: EnderecoForm = { cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '', referencia: '', distancia_km: '' }
@@ -34,12 +35,54 @@ function fmtData(): string {
   return new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+// ─── Seletor de Modo ──────────────────────────────────────────────────────────
+function SeletorModo({ onSelecionar }: { onSelecionar: (modo: Modo) => void }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, padding: '32px 0' }}>
+      <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Selecione o tipo de pedido</p>
+      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <button
+          onClick={() => onSelecionar('delivery')}
+          style={{
+            width: 200, padding: '28px 20px', borderRadius: 16, cursor: 'pointer', border: '0.5px solid var(--border)',
+            background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)', transition: 'all 0.15s',
+          }}
+          onMouseOver={e => (e.currentTarget.style.borderColor = '#C0392B')}
+          onMouseOut={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+        >
+          <span style={{ fontSize: 36 }}>🛵</span>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>Delivery / Retirada</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>Cadastra cliente, endereço e calcula frete</span>
+        </button>
+
+        <button
+          onClick={() => onSelecionar('local')}
+          style={{
+            width: 200, padding: '28px 20px', borderRadius: 16, cursor: 'pointer', border: '0.5px solid var(--border)',
+            background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)', transition: 'all 0.15s',
+          }}
+          onMouseOver={e => (e.currentTarget.style.borderColor = '#0F6E56')}
+          onMouseOut={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+        >
+          <span style={{ fontSize: 36 }}>🪑</span>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>Consumo no Local</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>Sem entrega, sem taxa, só o nome do cliente</span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Stepper ──────────────────────────────────────────────────────────────────
-function Stepper({ etapa }: { etapa: number }) {
-  const steps = ['Identificar\nCliente', 'Endereço de\nEntrega', 'Itens do\nPedido', 'Pagamento']
+function Stepper({ etapa, modo }: { etapa: number; modo: Modo }) {
+  const steps = modo === 'local'
+    ? ['Nome do\nCliente', 'Itens do\nPedido', 'Pagamento']
+    : ['Identificar\nCliente', 'Endereço de\nEntrega', 'Itens do\nPedido', 'Pagamento']
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 0 24px' }}>
-      {steps.map((label, i) => {
+      {steps.map((label: string, i: number) => {
         const num = i + 1
         const done = num < etapa
         const active = num === etapa
@@ -340,6 +383,43 @@ function Etapa1({
   )
 }
 
+// ─── Etapa Local (nome do cliente) ────────────────────────────────────────────
+function EtapaLocal({ onContinuar }: { onContinuar: (nome: string) => void }) {
+  const [nome, setNome] = useState('')
+  const [erro, setErro] = useState('')
+
+  function handleContinuar() {
+    if (!nome.trim()) { setErro('Informe o nome do cliente'); return }
+    setErro('')
+    onContinuar(nome.trim())
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+      <div style={{ background: '#E8F5E9', border: '1px solid #0F6E56', borderRadius: 12, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 10, maxWidth: 420, width: '100%' }}>
+        <span style={{ fontSize: 22 }}>🪑</span>
+        <p style={{ color: '#0F6E56', fontWeight: 600, fontSize: 13 }}>Consumo no local — sem taxa de entrega</p>
+      </div>
+      <div style={{ maxWidth: 420, width: '100%' }}>
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--text-muted)' }}>Nome do cliente *</label>
+        <input
+          className="input"
+          style={{ fontSize: 18, textAlign: 'center', padding: '12px 16px' }}
+          placeholder="Ex: João"
+          value={nome}
+          onChange={e => setNome(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleContinuar()}
+          autoFocus
+        />
+        {erro && <p style={{ color: '#A32D2D', fontSize: 12, marginTop: 6 }}>{erro}</p>}
+      </div>
+      <button className="btn-primary" style={{ background: '#0F6E56', maxWidth: 420, width: '100%' }} onClick={handleContinuar}>
+        Continuar para itens &rarr;
+      </button>
+    </div>
+  )
+}
+
 // ─── Etapa 2 ──────────────────────────────────────────────────────────────────
 function Etapa2({
   cliente,
@@ -630,14 +710,16 @@ function Etapa2({
 // ─── Etapa 3 ──────────────────────────────────────────────────────────────────
 function Etapa3({
   cliente,
+  nomeLocal,
   endereco,
   taxaEntrega,
   onContinuar,
   initialItens,
   initialObservacoes,
 }: {
-  cliente: Cliente
-  endereco: Endereco
+  cliente?: Cliente | null
+  nomeLocal?: string
+  endereco?: Endereco | null
   taxaEntrega: number
   onContinuar: (itens: ItemPedido[], subtotal: number, total: number, observacoes: string, taxaFinal: number) => void
   initialItens?: ItemPedido[]
@@ -771,7 +853,7 @@ function Etapa3({
       <div>
         <div style={{ background: '#FDF3E3', border: '1px solid #F5C070', borderRadius: 12, padding: 16, position: 'sticky', top: 16 }}>
           <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Resumo do Pedido</p>
-          <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>{cliente.nome}</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>{nomeLocal ?? cliente?.nome}</p>
 
           {pedido.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 12, textAlign: 'center' }}>Nenhum item adicionado</p>
@@ -833,8 +915,8 @@ function Etapa3({
               imprimirComanda({
                 numero_seq: 0,
                 created_at: new Date().toISOString(),
-                clientes: { nome: cliente.nome, telefone: cliente.telefone },
-                enderecos: { logradouro: endereco.logradouro, numero: endereco.numero, complemento: endereco.complemento, bairro: endereco.bairro, referencia: endereco.referencia },
+                clientes: { nome: nomeLocal ?? cliente?.nome ?? '', telefone: cliente?.telefone ?? '' },
+                enderecos: { logradouro: endereco?.logradouro ?? 'Consumo no Local', numero: endereco?.numero ?? '', complemento: endereco?.complemento ?? null, bairro: endereco?.bairro ?? '', referencia: endereco?.referencia ?? null },
                 itens_pedido: pedido.map(p => ({ nome_snapshot: p.item.nome, quantidade: p.quantidade, preco_snapshot: Number(p.item.preco), subtotal: Number(p.item.preco) * p.quantidade, observacao: p.observacao ?? null })),
                 subtotal,
                 taxa_entrega: taxaFinal,
@@ -862,6 +944,7 @@ function Etapa3({
 // ─── Etapa 4 ──────────────────────────────────────────────────────────────────
 function Etapa4({
   cliente,
+  nomeLocal,
   endereco,
   distanciaKm,
   taxaEntrega,
@@ -871,8 +954,9 @@ function Etapa4({
   observacoes,
   onConfirmado,
 }: {
-  cliente: Cliente
-  endereco: Endereco
+  cliente?: Cliente | null
+  nomeLocal?: string
+  endereco?: Endereco | null
   distanciaKm: number
   taxaEntrega: number
   itens: ItemPedido[]
@@ -898,6 +982,8 @@ function Etapa4({
     credito: 'Leve a maquininha de cartão crédito. O pagamento é processado na entrega.',
   }
 
+  const isLocal = !!nomeLocal
+
   async function confirmarPedido() {
     if (pagamento === 'dinheiro') {
       const rec = parseFloat(valorRecebido)
@@ -919,9 +1005,22 @@ function Etapa4({
       const res = await fetch('/api/pedidos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cliente_id: cliente.id,
-          endereco_id: endereco.id > 0 ? endereco.id : null,
+        body: JSON.stringify(isLocal ? {
+          nome_local: nomeLocal,
+          tipo_entrega: 'local',
+          distancia_km: 0,
+          taxa_entrega: 0,
+          subtotal,
+          total: subtotal,
+          pagamento,
+          pago,
+          troco: pagamento === 'dinheiro' ? troco : null,
+          observacoes: observacoes || null,
+          itens: itensMapped,
+        } : {
+          cliente_id: cliente!.id,
+          tipo_entrega: endereco?.logradouro === 'Retirada na Loja' ? 'retirada' : 'entrega',
+          endereco_id: (endereco?.id ?? 0) > 0 ? endereco!.id : null,
           distancia_km: distanciaKm,
           taxa_entrega: taxaEntrega,
           subtotal,
@@ -1035,11 +1134,13 @@ function Etapa4({
       {/* Resumo direita */}
       <div style={{ background: '#FDF3E3', border: '1px solid #F5C070', borderRadius: 12, padding: 16 }}>
         <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Resumo</p>
-        <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 1 }}>{cliente.nome}</p>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 1 }}>{formatTelefone(cliente.telefone)}</p>
-        {endereco.logradouro === 'Retirada na Loja'
-          ? <p style={{ fontSize: 12, color: '#0F6E56', fontWeight: 700, marginBottom: 8 }}>🏪 Retirada na Loja</p>
-          : <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{endereco.logradouro}, {endereco.numero} — {endereco.bairro}</p>
+        <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 1 }}>{nomeLocal ?? cliente?.nome}</p>
+        {!isLocal && <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 1 }}>{formatTelefone(cliente?.telefone ?? '')}</p>}
+        {isLocal
+          ? <p style={{ fontSize: 12, color: '#0F6E56', fontWeight: 700, marginBottom: 8 }}>🪑 Consumo no Local</p>
+          : endereco?.logradouro === 'Retirada na Loja'
+            ? <p style={{ fontSize: 12, color: '#0F6E56', fontWeight: 700, marginBottom: 8 }}>🏪 Retirada na Loja</p>
+            : <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{endereco?.logradouro}, {endereco?.numero} — {endereco?.bairro}</p>
         }
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>PAGAMENTO</span>
@@ -1093,22 +1194,31 @@ function Etapa4({
 
 // ─── Confirmação ──────────────────────────────────────────────────────────────
 function TelaConfirmacao({
-  pedido, subtotal, taxaEntrega, endereco, observacoes, onNovoPedido,
+  pedido, subtotal, taxaEntrega, endereco, nomeLocal, observacoes, onNovoPedido,
 }: {
   pedido: PedidoCriado
   subtotal: number
   taxaEntrega: number
   endereco: Endereco | null
+  nomeLocal?: string
   observacoes: string
   onNovoPedido: () => void
 }) {
+  const nomeExibir = nomeLocal ?? pedido.clientes?.nome ?? ''
+  const telefoneExibir = pedido.clientes?.telefone ?? ''
+
   function handleImprimir() {
-    if (!endereco) return
     imprimirComanda({
       numero_seq: pedido.numero_seq,
       created_at: new Date().toISOString(),
-      clientes: { nome: pedido.clientes.nome, telefone: pedido.clientes.telefone },
-      enderecos: { logradouro: endereco.logradouro, numero: endereco.numero, complemento: endereco.complemento ?? null, bairro: endereco.bairro, referencia: endereco.referencia },
+      clientes: { nome: nomeExibir, telefone: telefoneExibir },
+      enderecos: {
+        logradouro: nomeLocal ? 'Consumo no Local' : (endereco?.logradouro ?? ''),
+        numero: endereco?.numero ?? '',
+        complemento: endereco?.complemento ?? null,
+        bairro: endereco?.bairro ?? '',
+        referencia: endereco?.referencia ?? null,
+      },
       itens_pedido: pedido.itens_pedido.map(it => ({
         nome_snapshot: it.nome_snapshot,
         quantidade: it.quantidade,
@@ -1133,7 +1243,10 @@ function TelaConfirmacao({
       </div>
       <p style={{ fontSize: 18, fontWeight: 700 }}>Pedido #{pedido.numero_seq} confirmado!</p>
       <div style={{ background: '#FDF3E3', border: '1px solid #E8870A', borderRadius: 12, padding: '16px 24px', minWidth: 320 }}>
-        <p style={{ fontWeight: 600, marginBottom: 8 }}>{pedido.clientes?.nome}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          {nomeLocal && <span style={{ fontSize: 14 }}>🪑</span>}
+          <p style={{ fontWeight: 600 }}>{nomeExibir}</p>
+        </div>
         {pedido.itens_pedido?.map((it, i) => (
           <p key={i} style={{ fontSize: 12, color: 'var(--text-muted)' }}>{it.quantidade}x {it.nome_snapshot}</p>
         ))}
@@ -1161,8 +1274,10 @@ function TelaConfirmacao({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 function NovoPedidoContent() {
   const searchParams = useSearchParams()
+  const [modo, setModo] = useState<Modo | null>(null)
   const [etapa, setEtapa] = useState(1)
   const [cliente, setCliente] = useState<Cliente | null>(null)
+  const [nomeLocal, setNomeLocal] = useState('')
   const [endereco, setEndereco] = useState<Endereco | null>(null)
   const [distanciaKm, setDistanciaKm] = useState(0)
   const [taxaEntrega, setTaxaEntrega] = useState(0)
@@ -1176,28 +1291,39 @@ function NovoPedidoContent() {
   const initialClienteId = searchParams.get('clienteId')
 
   function resetar() {
-    setEtapa(1); setCliente(null); setEndereco(null)
-    setDistanciaKm(0); setTaxaEntrega(0); setItensPedido([])
+    setModo(null); setEtapa(1); setCliente(null); setNomeLocal('')
+    setEndereco(null); setDistanciaKm(0); setTaxaEntrega(0); setItensPedido([])
     setSubtotal(0); setTotal(0); setObservacoes('')
     setPedidoConfirmado(null); setSeqDisplay(null)
   }
 
+  // Etapa relativa ao modo: local tem 3 etapas (nome=1, itens=2, pagamento=3)
+  // delivery tem 4 etapas (cliente=1, endereço=2, itens=3, pagamento=4)
+  const etapaItens = modo === 'local' ? 2 : 3
+  const etapaPagamento = modo === 'local' ? 3 : 4
+
   return (
     <div>
-      {/* Topbar vermelho */}
-      <div style={{ background: '#C0392B', color: '#fff', borderRadius: 12, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-        <span style={{ fontSize: 20 }}>&#x1F6F5;</span>
-        <span style={{ fontWeight: 700, fontSize: 15, flex: 1 }}>Docy Esquina &mdash; Novo Pedido</span>
+      {/* Topbar */}
+      <div style={{
+        background: modo === 'local' ? '#0F6E56' : '#C0392B',
+        color: '#fff', borderRadius: 12, padding: '12px 20px',
+        display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4,
+      }}>
+        <span style={{ fontSize: 20 }}>{modo === 'local' ? '🪑' : '🛵'}</span>
+        <span style={{ fontWeight: 700, fontSize: 15, flex: 1 }}>
+          Docy Esquina &mdash; {modo === 'local' ? 'Consumo no Local' : 'Novo Pedido'}
+        </span>
         {seqDisplay && <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 10px', borderRadius: 20, fontSize: 13 }}>#{seqDisplay}</span>}
         <span style={{ fontSize: 12, opacity: 0.85 }}>{fmtData()}</span>
       </div>
 
-      {!pedidoConfirmado && <Stepper etapa={etapa} />}
+      {!pedidoConfirmado && modo && <Stepper etapa={etapa} modo={modo} />}
 
-      {!pedidoConfirmado && etapa > 1 && (
+      {!pedidoConfirmado && modo && (
         <div style={{ marginBottom: 8 }}>
           <button
-            onClick={() => setEtapa(etapa - 1)}
+            onClick={() => etapa > 1 ? setEtapa(etapa - 1) : setModo(null)}
             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 0' }}
           >
             &#8592; Voltar
@@ -1211,49 +1337,82 @@ function NovoPedidoContent() {
           subtotal={subtotal}
           taxaEntrega={taxaEntrega}
           endereco={endereco}
+          nomeLocal={modo === 'local' ? nomeLocal : undefined}
           observacoes={observacoes}
           onNovoPedido={resetar}
         />
-      ) : etapa === 1 ? (
-        <Etapa1
-          initialClienteId={initialClienteId}
-          initialCliente={cliente}
-          onClienteEncontrado={c => { setCliente(c); setSeqDisplay(null); setEtapa(2) }}
-        />
-      ) : etapa === 2 && cliente ? (
-        <Etapa2
-          cliente={cliente}
-          initialEndereco={endereco}
-          initialTaxaEntrega={taxaEntrega}
-          onEnderecoSelecionado={(end, dist, taxa) => {
-            setEndereco(end); setDistanciaKm(dist); setTaxaEntrega(taxa); setEtapa(3)
-          }}
-        />
-      ) : etapa === 3 && cliente ? (
-        <Etapa3
-          cliente={cliente}
-          endereco={endereco!}
-          taxaEntrega={taxaEntrega}
-          initialItens={itensPedido}
-          initialObservacoes={observacoes}
-          onContinuar={(its, sub, tot, obs, taxaFinal) => {
-            setItensPedido(its); setSubtotal(sub); setTotal(tot)
-            setObservacoes(obs); setTaxaEntrega(taxaFinal); setEtapa(4)
-          }}
-        />
-      ) : etapa === 4 && cliente && endereco ? (
-        <Etapa4
-          cliente={cliente}
-          endereco={endereco}
-          distanciaKm={distanciaKm}
-          taxaEntrega={taxaEntrega}
-          itens={itensPedido}
-          subtotal={subtotal}
-          total={total}
-          observacoes={observacoes}
-          onConfirmado={p => { setPedidoConfirmado(p); setSeqDisplay(p.numero_seq) }}
-        />
-      ) : null}
+      ) : !modo ? (
+        <SeletorModo onSelecionar={m => { setModo(m); setEtapa(1) }} />
+
+      ) : modo === 'local' ? (
+        etapa === 1 ? (
+          <EtapaLocal onContinuar={nome => { setNomeLocal(nome); setEtapa(2) }} />
+        ) : etapa === etapaItens ? (
+          <Etapa3
+            nomeLocal={nomeLocal}
+            taxaEntrega={0}
+            initialItens={itensPedido}
+            initialObservacoes={observacoes}
+            onContinuar={(its, sub, tot, obs) => {
+              setItensPedido(its); setSubtotal(sub); setTotal(sub)
+              setObservacoes(obs); setTaxaEntrega(0); setEtapa(etapaPagamento)
+            }}
+          />
+        ) : etapa === etapaPagamento ? (
+          <Etapa4
+            nomeLocal={nomeLocal}
+            distanciaKm={0}
+            taxaEntrega={0}
+            itens={itensPedido}
+            subtotal={subtotal}
+            total={subtotal}
+            observacoes={observacoes}
+            onConfirmado={p => { setPedidoConfirmado(p); setSeqDisplay(p.numero_seq) }}
+          />
+        ) : null
+
+      ) : (
+        etapa === 1 ? (
+          <Etapa1
+            initialClienteId={initialClienteId}
+            initialCliente={cliente}
+            onClienteEncontrado={c => { setCliente(c); setSeqDisplay(null); setEtapa(2) }}
+          />
+        ) : etapa === 2 && cliente ? (
+          <Etapa2
+            cliente={cliente}
+            initialEndereco={endereco}
+            initialTaxaEntrega={taxaEntrega}
+            onEnderecoSelecionado={(end, dist, taxa) => {
+              setEndereco(end); setDistanciaKm(dist); setTaxaEntrega(taxa); setEtapa(3)
+            }}
+          />
+        ) : etapa === 3 && cliente ? (
+          <Etapa3
+            cliente={cliente}
+            endereco={endereco!}
+            taxaEntrega={taxaEntrega}
+            initialItens={itensPedido}
+            initialObservacoes={observacoes}
+            onContinuar={(its, sub, tot, obs, taxaFinal) => {
+              setItensPedido(its); setSubtotal(sub); setTotal(tot)
+              setObservacoes(obs); setTaxaEntrega(taxaFinal); setEtapa(4)
+            }}
+          />
+        ) : etapa === 4 && cliente && endereco ? (
+          <Etapa4
+            cliente={cliente}
+            endereco={endereco}
+            distanciaKm={distanciaKm}
+            taxaEntrega={taxaEntrega}
+            itens={itensPedido}
+            subtotal={subtotal}
+            total={total}
+            observacoes={observacoes}
+            onConfirmado={p => { setPedidoConfirmado(p); setSeqDisplay(p.numero_seq) }}
+          />
+        ) : null
+      )}
     </div>
   )
 }

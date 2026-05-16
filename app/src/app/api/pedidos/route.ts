@@ -62,6 +62,8 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const {
     cliente_id,
+    nome_local,
+    tipo_entrega,
     endereco_id,
     distancia_km,
     taxa_entrega,
@@ -75,23 +77,33 @@ export async function POST(request: NextRequest) {
     itens,
   } = body
 
-  if (!cliente_id || !subtotal || !total || !pagamento || !itens?.length) {
+  const isLocal = tipo_entrega === 'local'
+
+  if (!isLocal && !cliente_id) {
+    return NextResponse.json({ error: 'Dados incompletos para criar pedido' }, { status: 400 })
+  }
+  if (isLocal && !nome_local?.trim()) {
+    return NextResponse.json({ error: 'Nome do cliente é obrigatório para consumo no local' }, { status: 400 })
+  }
+  if (!subtotal || !total || !pagamento || !itens?.length) {
     return NextResponse.json({ error: 'Dados incompletos para criar pedido' }, { status: 400 })
   }
 
   const { data: pedido, error: pedidoError } = await supabase
     .from('pedidos')
     .insert({
-      cliente_id,
+      cliente_id: isLocal ? null : cliente_id,
+      nome_local: isLocal ? nome_local.trim() : null,
+      tipo_entrega: tipo_entrega ?? 'entrega',
       endereco_id: endereco_id ?? null,
       distancia_km: distancia_km ?? 0,
-      taxa_entrega: taxa_entrega ?? 0,
-      taxa_manual: taxa_manual ?? null,
+      taxa_entrega: 0,
+      taxa_manual: isLocal ? null : (taxa_manual ?? null),
       subtotal,
-      total,
+      total: subtotal,
       pagamento,
       pago: pago ?? false,
-      troco: troco ?? null,
+      troco: pagamento === 'dinheiro' ? (troco ?? null) : null,
       observacoes: observacoes ?? null,
     })
     .select()
