@@ -35,7 +35,7 @@ export function audioDesbloqueado() { return desbloqueado }
 // ─── Mapa de arquivos de áudio ────────────────────────────────────────────────
 // Coloque os arquivos MP3 em public/sounds/
 const SONS = {
-  'novo-pedido':      '/sounds/novo-pedido.mp3',
+  'novo-pedido':      '/sounds/novo-pedido.ogg',
   'pedido-aceito':    '/sounds/pedido-aceito.mp3',
   'saiu-entrega':     '/sounds/saiu-entrega.mp3',
   'pedido-entregue':  '/sounds/pedido-entregue.mp3',
