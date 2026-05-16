@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 type CartItem = { itemId: number; nome: string; preco: number; qty: number; observacao: string }
-type Endereco = { id: number; logradouro: string; numero: string; bairro: string; complemento?: string }
+type Endereco = { id: number; logradouro: string; numero: string; bairro: string; complemento?: string; cep?: string; distancia_km?: number | null }
 type Pagamento = 'pix' | 'dinheiro' | 'debito' | 'credito'
 
 function fmtMoeda(v: number) {
@@ -25,6 +25,7 @@ export default function PwaSacolaPage() {
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
   const [taxaEntregaBase, setTaxaEntregaBase] = useState(0)
+  const [carregandoTaxa, setCarregandoTaxa] = useState(true)
 
   useEffect(() => {
     const clienteRaw = localStorage.getItem('pwa_cliente')
@@ -36,16 +37,50 @@ export default function PwaSacolaPage() {
     setClienteId(c.clienteId)
     setEnderecoId(Number(endId))
 
-    const end = c.enderecos?.find((e: Endereco) => e.id === Number(endId))
+    const end: Endereco | undefined = c.enderecos?.find((e: Endereco) => e.id === Number(endId))
     if (end) setEndereco(end)
 
     const cartRaw = sessionStorage.getItem('pwa_cart')
     if (cartRaw) setCart(JSON.parse(cartRaw))
 
-    // Buscar taxa de entrega
-    fetch('/api/pwa/config').then(r => r.json()).then(cfg => {
-      setTaxaEntregaBase(cfg.taxaMinima ?? 5)
-    })
+    // Calcula taxa de entrega real baseada na distância do cliente
+    const calcularTaxa = async (endereco?: Endereco) => {
+      setCarregandoTaxa(true)
+      try {
+        const body: Record<string, unknown> = {}
+        if (endereco?.distancia_km != null && endereco.distancia_km > 0) {
+          // Distância já salva no cadastro → usa diretamente
+          body.km_manual = endereco.distancia_km
+        } else if (endereco?.bairro) {
+          // Fallback: calcula pelo bairro/CEP
+          body.bairro = endereco.bairro
+          if (endereco?.cep) body.cep_destino = endereco.cep
+        }
+
+        if (Object.keys(body).length > 0) {
+          const res = await fetch('/api/frete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+          if (res.ok) {
+            const frete = await res.json()
+            setTaxaEntregaBase(frete.taxa ?? 0)
+            return
+          }
+        }
+        // Fallback final: taxa mínima das configurações
+        const cfg = await fetch('/api/pwa/config').then(r => r.json())
+        setTaxaEntregaBase(cfg.taxaMinima ?? 5)
+      } catch {
+        const cfg = await fetch('/api/pwa/config').then(r => r.json()).catch(() => ({ taxaMinima: 5 }))
+        setTaxaEntregaBase(cfg.taxaMinima ?? 5)
+      } finally {
+        setCarregandoTaxa(false)
+      }
+    }
+
+    calcularTaxa(end)
   }, [router])
 
   function saveCart(c: CartItem[]) {
@@ -256,7 +291,8 @@ export default function PwaSacolaPage() {
           </div>
           {tipoEntrega === 'entrega' && (
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 12, opacity: 0.8 }}>
-              <span>Taxa de entrega</span><span>{fmtMoeda(taxaEntrega)}</span>
+              <span>Taxa de entrega</span>
+              <span>{carregandoTaxa ? '...' : fmtMoeda(taxaEntrega)}</span>
             </div>
           )}
           {tipoEntrega === 'retirada' && (
@@ -275,8 +311,8 @@ export default function PwaSacolaPage() {
 
       {/* Bottom bar */}
       <div className="pwa-bottom-bar">
-        <button className="pwa-btn pwa-btn-primary" onClick={handleConfirmar} disabled={enviando || cart.length === 0}>
-          {enviando ? 'Confirmando...' : `Confirmar pedido — ${fmtMoeda(total)}`}
+        <button className="pwa-btn pwa-btn-primary" onClick={handleConfirmar} disabled={enviando || cart.length === 0 || carregandoTaxa}>
+          {enviando ? 'Confirmando...' : carregandoTaxa ? 'Calculando taxa...' : `Confirmar pedido — ${fmtMoeda(total)}`}
         </button>
       </div>
     </div>

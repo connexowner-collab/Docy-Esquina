@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { calcularDistanciaParaLoja } from '@/lib/calcularDistancia'
 
 export async function GET(req: NextRequest) {
   const telefone = req.nextUrl.searchParams.get('telefone')
@@ -45,6 +46,15 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const digits = telefone.replace(/\D/g, '')
 
+  // Busca coordenadas da loja para cálculo de distância
+  const { data: config } = await supabase
+    .from('configuracoes')
+    .select('lat_origem, lng_origem, cidade_origem, uf_origem')
+    .single()
+
+  const latOrigem = config?.lat_origem ? Number(config.lat_origem) : null
+  const lngOrigem = config?.lng_origem ? Number(config.lng_origem) : null
+
   const { data: cliente, error: clienteError } = await supabase
     .from('clientes')
     .insert({ nome: nome.trim(), telefone: digits, origem: 'pwa' })
@@ -59,20 +69,43 @@ export async function POST(req: NextRequest) {
   }
 
   let enderecoId: number | null = null
+
   if (enderecos && Array.isArray(enderecos) && enderecos.length > 0) {
-    const mapped = enderecos.map((e: Record<string, unknown>) => ({
-      cliente_id: cliente.id,
-      logradouro: e.logradouro,
-      numero: e.numero ?? 'S/N',
-      complemento: e.complemento || null,
-      bairro: e.bairro,
-      referencia: e.referencia || null,
-      cep: e.cep || null,
-    }))
+    const mapped = await Promise.all(
+      enderecos.map(async (e: Record<string, string>) => {
+        let distancia_km: number | null = null
+
+        if (latOrigem && lngOrigem) {
+          distancia_km = await calcularDistanciaParaLoja({
+            logradouro: e.logradouro,
+            numero: e.numero ?? 'S/N',
+            bairro: e.bairro,
+            cep: e.cep,
+            cidade: config?.cidade_origem ?? undefined,
+            uf: config?.uf_origem ?? undefined,
+            latOrigem,
+            lngOrigem,
+          })
+        }
+
+        return {
+          cliente_id: cliente.id,
+          logradouro: e.logradouro,
+          numero: e.numero ?? 'S/N',
+          complemento: e.complemento || null,
+          bairro: e.bairro,
+          referencia: e.referencia || null,
+          cep: e.cep || null,
+          distancia_km,
+        }
+      })
+    )
+
     const { data: endData } = await supabase
       .from('enderecos')
       .insert(mapped)
       .select('id')
+
     enderecoId = endData?.[0]?.id ?? null
   }
 
