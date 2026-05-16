@@ -22,11 +22,21 @@ export default function PwaCardapioPage() {
   const [modalQty, setModalQty] = useState(1)
   const [modalObs, setModalObs] = useState('')
   const [clienteNome, setClienteNome] = useState('')
+  const [mesaInfo, setMesaInfo] = useState<{ numero: number; nome: string } | null>(null)
 
   useEffect(() => {
-    const c = localStorage.getItem('pwa_cliente')
-    if (!c) { router.replace('/pwa'); return }
-    setClienteNome(JSON.parse(c).nome?.split(' ')[0] ?? '')
+    // Verifica modo mesa primeiro
+    const mesaRaw = sessionStorage.getItem('pwa_mesa')
+    if (mesaRaw) {
+      const mesa = JSON.parse(mesaRaw)
+      setMesaInfo(mesa)
+      setClienteNome(mesa.nome?.split(' ')[0] ?? '')
+    } else {
+      // Modo normal — requer cliente cadastrado
+      const c = localStorage.getItem('pwa_cliente')
+      if (!c) { router.replace('/pwa'); return }
+      setClienteNome(JSON.parse(c).nome?.split(' ')[0] ?? '')
+    }
 
     const cartSaved = sessionStorage.getItem('pwa_cart')
     if (cartSaved) setCart(JSON.parse(cartSaved))
@@ -113,9 +123,13 @@ export default function PwaCardapioPage() {
     <div className="pwa-screen" style={{ paddingBottom: cartCount > 0 ? 90 : 0 }}>
       {/* Navbar */}
       <div className="pwa-navbar">
-        <button onClick={() => router.push('/pwa')} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', padding: 0, lineHeight: 1 }}>←</button>
+        <button onClick={() => mesaInfo ? router.push(`/pwa/mesa/${mesaInfo.numero}`) : router.push('/pwa')} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', padding: 0, lineHeight: 1 }}>←</button>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 12, opacity: 0.8 }}>Olá, {clienteNome}!</div>
+          {mesaInfo ? (
+            <div style={{ fontSize: 13, fontWeight: 700 }}>🍽️ Mesa {mesaInfo.numero} · {clienteNome}</div>
+          ) : (
+            <div style={{ fontSize: 12, opacity: 0.8 }}>Olá, {clienteNome}!</div>
+          )}
           <div style={{ fontSize: 17, fontWeight: 600 }}>Cardápio</div>
         </div>
         {cartCount > 0 ? (
