@@ -11,21 +11,49 @@ export default function PwaMesaPage() {
   const [nome, setNome] = useState('')
   const [config, setConfig] = useState<{ aberto: boolean; nomeEstabelecimento: string; mensagemFechado: string } | null>(null)
   const [erro, setErro] = useState('')
+  const [verificando, setVerificando] = useState(false)
 
   useEffect(() => {
     fetch('/api/pwa/config').then(r => r.json()).then(setConfig).catch(() => {})
-    // Limpa sessão anterior ao entrar pela mesa
+    // Limpa carrinho mas mantém sessão de mesa se existir
     sessionStorage.removeItem('pwa_cart')
-    sessionStorage.removeItem('pwa_mesa')
     localStorage.removeItem('pwa_cliente')
     localStorage.removeItem('pwa_endereco_id')
-  }, [])
+    // Se já tem sessão de mesa ativa no sessionStorage, vai direto pra comanda
+    const mesaRaw = sessionStorage.getItem('pwa_mesa')
+    if (mesaRaw) {
+      const mesa = JSON.parse(mesaRaw)
+      if (mesa.numero === numero) {
+        router.replace(`/pwa/mesa/${numero}/comanda`)
+        return
+      }
+    }
+    sessionStorage.removeItem('pwa_mesa')
+  }, [numero, router])
 
-  function handleEntrar(e: React.FormEvent) {
+  async function handleEntrar(e: React.FormEvent) {
     e.preventDefault()
     if (!nome.trim()) { setErro('Digite seu nome para continuar'); return }
+    setVerificando(true)
+    setErro('')
+
+    // Salva sessão e verifica se já existe pedido aberto
     sessionStorage.setItem('pwa_mesa', JSON.stringify({ numero, nome: nome.trim() }))
-    router.push('/pwa/cardapio')
+
+    try {
+      const res = await fetch(`/api/mesas/sessoes/ativa?mesa=${numero}&nome=${encodeURIComponent(nome.trim())}`)
+      const data = await res.json()
+
+      if (data.sessao && data.sessao.pedidos?.length > 0) {
+        // Tem sessão com pedidos → vai pra comanda
+        router.push(`/pwa/mesa/${numero}/comanda`)
+      } else {
+        // Sem sessão ou sessão vazia → vai direto pro cardápio
+        router.push('/pwa/cardapio')
+      }
+    } catch {
+      router.push('/pwa/cardapio')
+    }
   }
 
   if (config && !config.aberto) {
@@ -86,8 +114,8 @@ export default function PwaMesaPage() {
 
           {erro && <p style={{ color: 'var(--pwa-red-ink)', fontSize: 13, marginBottom: 12 }}>{erro}</p>}
 
-          <button className="pwa-btn pwa-btn-primary" type="submit">
-            🛒 Ver cardápio →
+          <button className="pwa-btn pwa-btn-primary" type="submit" disabled={verificando}>
+            {verificando ? 'Verificando...' : '🛒 Ver cardápio →'}
           </button>
         </form>
       </div>

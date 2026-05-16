@@ -138,6 +138,12 @@ export default function PwaCardapioPage() {
             style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 20, padding: '7px 14px', color: '#fff', fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
             🛒 {cartCount} · {fmtMoeda(cartTotal)}
           </button>
+        ) : mesaInfo ? (
+          <button
+            onClick={() => router.push(`/pwa/mesa/${mesaInfo.numero}/comanda`)}
+            style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 20, padding: '6px 12px', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+            🧾 Comanda
+          </button>
         ) : (
           <div style={{ width: 32 }} />
         )}

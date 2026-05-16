@@ -89,8 +89,15 @@ function ConfirmacaoContent() {
         <button
           className="pwa-btn pwa-btn-primary"
           onClick={() => router.push('/pwa/cardapio')}>
-          {isMesa ? '🍽️ Pedir mais itens' : 'Fazer novo pedido'}
+          {isMesa ? '🛒 Pedir mais itens' : 'Fazer novo pedido'}
         </button>
+        {isMesa && (
+          <button
+            className="pwa-btn pwa-btn-outline"
+            onClick={() => router.push(`/pwa/mesa/${mesaParam}/comanda`)}>
+            🧾 Ver minha comanda
+          </button>
+        )}
         {!isMesa && (
           <button
             className="pwa-btn pwa-btn-outline"
