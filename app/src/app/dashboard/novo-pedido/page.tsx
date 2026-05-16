@@ -477,19 +477,12 @@ function Etapa2({
     setCalculando(true)
     setErroFrete('')
     try {
-      // Usa KM manual salvo no endereço se disponível; senão tenta coordenadas
       const base = end.distancia_km && end.distancia_km > 0
         ? { km_manual: end.distancia_km }
         : end.lat && end.lng
           ? { lat_destino: end.lat, lng_destino: end.lng }
-          : null
-      const body = base ? { ...base, bairro: end.bairro } : null
-
-      if (!body) {
-        setFreteInfo(null)
-        setErroFrete('Informe a distância em KM para calcular o frete.')
-        return
-      }
+          : {}
+      const body = { ...base, bairro: end.bairro }
 
       const res = await fetch('/api/frete', {
         method: 'POST',
@@ -497,7 +490,7 @@ function Etapa2({
         body: JSON.stringify(body),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erro ao calcular frete')
+      if (!res.ok) throw new Error(data.error || 'Endereço sem KM cadastrado — ajuste a taxa manualmente no próximo passo.')
       setFreteInfo(data)
     } catch (err) {
       setErroFrete(err instanceof Error ? err.message : 'Erro ao calcular frete')
@@ -1250,8 +1243,18 @@ function TelaConfirmacao({
         {pedido.itens_pedido?.map((it, i) => (
           <p key={i} style={{ fontSize: 12, color: 'var(--text-muted)' }}>{it.quantidade}x {it.nome_snapshot}</p>
         ))}
-        <div style={{ borderTop: '0.5px solid #E8870A', marginTop: 10, paddingTop: 10, display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-          <span>Total</span><span style={{ color: '#C0392B' }}>{fmtMoeda(Number(pedido.total))}</span>
+        <div style={{ borderTop: '0.5px solid #E8870A', marginTop: 10, paddingTop: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4, color: 'var(--text-muted)' }}>
+            <span>Subtotal</span><span>{fmtMoeda(subtotal)}</span>
+          </div>
+          {taxaEntrega > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4, color: 'var(--text-muted)' }}>
+              <span>Taxa de entrega</span><span>{fmtMoeda(taxaEntrega)}</span>
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+            <span>Total</span><span style={{ color: '#C0392B' }}>{fmtMoeda(Number(pedido.total))}</span>
+          </div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
