@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { playSoundPorStatus, vibrar, pedirPermissaoNotificacao, mostrarNotificacaoBrowser } from '@/lib/notificationSound'
 
 type StatusPedido = 'pendente' | 'em_preparo' | 'em_entrega' | 'entregue' | 'recusado'
 
@@ -74,11 +75,19 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState('')
   const [tempoAtual, setTempoAtual] = useState(Date.now())
-  const [toast, setToast] = useState('')
+  const [notifBanner, setNotifBanner] = useState<{ icone: string; titulo: string; cor: string } | null>(null)
 
-  function showToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(''), 3000)
+  function dispararNotificacao(status: StatusPedido) {
+    const info = STATUS_INFO[status]
+    if (!info) return
+    playSoundPorStatus(status)
+    vibrar()
+    setNotifBanner({ icone: info.icone, titulo: info.titulo, cor: info.cor })
+    setTimeout(() => setNotifBanner(null), 5000)
+    mostrarNotificacaoBrowser(`${info.icone} ${info.titulo}`, {
+      body: info.texto,
+      tag: `pedido-status-${status}`,
+    })
   }
 
   useEffect(() => {
@@ -92,6 +101,9 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
       .catch(() => setErro('Erro ao carregar pedido'))
       .finally(() => setLoading(false))
 
+    // Solicitar permissão de notificação ao carregar a página de status
+    pedirPermissaoNotificacao().catch(() => {})
+
     // Supabase Realtime — escutar atualizações do pedido
     const supabase = createClient()
     const channel = supabase
@@ -104,8 +116,7 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
       }, payload => {
         const novo = payload.new as { status_pedido: StatusPedido; motivo_recusa?: string; status_updated_at?: string }
         setPedido(prev => prev ? { ...prev, status_pedido: novo.status_pedido, motivo_recusa: novo.motivo_recusa, status_updated_at: novo.status_updated_at } : prev)
-        const info = STATUS_INFO[novo.status_pedido]
-        if (info) showToast(`${info.icone} ${info.titulo}`)
+        dispararNotificacao(novo.status_pedido)
       })
       .subscribe()
 
@@ -146,22 +157,42 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
   const steps = getSteps(status, tipo)
   const stepLabels = tipo === 'retirada' ? STEP_LABELS_RETIRADA : STEP_LABELS_ENTREGA
 
+  const corBanner: Record<string, { bg: string; borda: string; texto: string }> = {
+    amber: { bg: '#FFF8E6', borda: '#F5C070', texto: '#9A6700' },
+    green: { bg: '#E8F9EF', borda: '#6AE0A0', texto: '#0F6E56' },
+    blue:  { bg: '#E8F0FC', borda: '#7AB4F4', texto: '#185FA5' },
+    red:   { bg: '#FDECEA', borda: '#F09595', texto: '#B33A3A' },
+  }
+
   return (
     <div className="pwa-screen">
-      {/* Toast de atualização */}
-      {toast && (
-        <div style={{
-          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
-          background: 'rgba(40,30,20,0.92)', color: '#fff',
-          padding: '10px 18px', borderRadius: 12, fontSize: 13, fontWeight: 500,
-          zIndex: 100, display: 'flex', alignItems: 'center', gap: 8,
-          boxShadow: '0 8px 20px -6px rgba(0,0,0,0.3)',
-          animation: 'pwa-slide-up 0.3s ease',
-          whiteSpace: 'nowrap',
-        }}>
-          {toast}
-        </div>
-      )}
+      {/* Banner de notificação de status */}
+      {notifBanner && (() => {
+        const c = corBanner[notifBanner.cor] ?? corBanner.green
+        return (
+          <div
+            onClick={() => setNotifBanner(null)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 200,
+              background: 'rgba(0,0,0,0.55)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 24,
+            }}
+          >
+            <div style={{
+              background: c.bg, border: `2px solid ${c.borda}`,
+              borderRadius: 24, padding: '32px 28px', textAlign: 'center',
+              maxWidth: 320, width: '100%',
+              boxShadow: '0 20px 60px -12px rgba(0,0,0,0.35)',
+              animation: 'pwa-notif-pop 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+            }}>
+              <div style={{ fontSize: 56, marginBottom: 16, lineHeight: 1 }}>{notifBanner.icone}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: c.texto, marginBottom: 8 }}>{notifBanner.titulo}</div>
+              <div style={{ fontSize: 12, color: c.texto, opacity: 0.7 }}>Toque para fechar</div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Hero vermelho */}
       <div style={{ background: 'var(--pwa-primary)', color: '#fff', padding: '52px 20px 24px', position: 'relative' }}>

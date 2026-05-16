@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { playNewOrderAlert, pedirPermissaoNotificacao, mostrarNotificacaoBrowser } from '@/lib/notificationSound'
 
 type StatusPedido = 'pendente' | 'em_preparo' | 'em_entrega' | 'entregue' | 'recusado'
 
@@ -91,6 +92,10 @@ export default function PedidosOnlinePage() {
   const [processando, setProcessando] = useState<number | null>(null)
   const [lojaAberta, setLojaAberta] = useState<boolean | null>(null)
   const [togglingLoja, setTogglingLoja] = useState(false)
+  const [notifPermitida, setNotifPermitida] = useState(false)
+  const [alertaBanner, setAlertaBanner] = useState(false)
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const tituloPagina = useRef('Pedidos Online')
 
   const carregarPedidos = useCallback(async (todos = false) => {
     const supabase = createClient()
@@ -134,16 +139,44 @@ export default function PedidosOnlinePage() {
     setTogglingLoja(false)
   }
 
+  function dispararAlertaNovoPedido() {
+    playNewOrderAlert()
+    mostrarNotificacaoBrowser('🔔 Novo pedido!', { body: 'Um cliente fez um pedido pelo app.', tag: 'novo-pedido' })
+    // Flash no título da aba
+    let flashing = true
+    const interval = setInterval(() => {
+      document.title = flashing ? '🔔 NOVO PEDIDO!' : tituloPagina.current
+      flashing = !flashing
+    }, 600)
+    setTimeout(() => { clearInterval(interval); document.title = tituloPagina.current }, 8000)
+    // Banner topo
+    setAlertaBanner(true)
+    if (bannerTimer.current) clearTimeout(bannerTimer.current)
+    bannerTimer.current = setTimeout(() => setAlertaBanner(false), 6000)
+  }
+
+  useEffect(() => {
+    tituloPagina.current = document.title
+    // Verificar permissão já concedida
+    if (typeof Notification !== 'undefined') {
+      setNotifPermitida(Notification.permission === 'granted')
+    }
+  }, [])
+
   useEffect(() => {
     carregarPedidos(verTodos)
     const supabase = createClient()
     const channel = supabase
       .channel('portal-pedidos-online')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pedidos', filter: 'origem=eq.pwa' }, () => carregarPedidos(verTodos))
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pedidos', filter: 'origem=eq.pwa' }, () => {
+        carregarPedidos(verTodos)
+        dispararAlertaNovoPedido()
+      })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pedidos', filter: 'origem=eq.pwa' }, () => carregarPedidos(verTodos))
       .subscribe()
     const timer = setInterval(() => carregarPedidos(verTodos), 60000)
     return () => { supabase.removeChannel(channel); clearInterval(timer) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carregarPedidos, verTodos])
 
   const aguardando = pedidos.filter(p => p.status_validacao === 'pendente')
@@ -369,10 +402,46 @@ export default function PedidosOnlinePage() {
             )}
           </div>
         </div>
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#888' }}>
-          Pedidos pelo app — atualiza em tempo real{verTodos ? ' · Todos os pedidos' : ' · Somente hoje'}
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
+          <p style={{ margin: 0, fontSize: 12, color: '#888' }}>
+            Pedidos pelo app — atualiza em tempo real{verTodos ? ' · Todos os pedidos' : ' · Somente hoje'}
+          </p>
+          {!notifPermitida && typeof Notification !== 'undefined' && Notification.permission !== 'denied' && (
+            <button
+              onClick={async () => {
+                const perm = await pedirPermissaoNotificacao()
+                setNotifPermitida(perm === 'granted')
+              }}
+              style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, border: '1px solid #E8870A', background: '#FDF3E3', color: '#B8600A', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, whiteSpace: 'nowrap' }}>
+              🔔 Ativar notificações
+            </button>
+          )}
+          {notifPermitida && (
+            <span style={{ fontSize: 11, color: '#0F6E56', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span>🔔</span> Notificações ativas
+            </span>
+          )}
+        </div>
       </div>
+
+      {/* Banner de novo pedido */}
+      {alertaBanner && (
+        <div style={{
+          background: '#C0392B', color: '#fff',
+          borderRadius: 10, padding: '12px 16px',
+          display: 'flex', alignItems: 'center', gap: 12,
+          marginBottom: 12, flexShrink: 0,
+          animation: 'pulse 0.5s ease infinite alternate',
+        }}>
+          <span style={{ fontSize: 22 }}>🔔</span>
+          <span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>Novo pedido recebido!</span>
+          <button
+            onClick={() => setAlertaBanner(false)}
+            style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Kanban */}
       {loading ? (

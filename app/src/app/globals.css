@@ -501,6 +501,14 @@ body {
   from { transform: translateY(100%); }
   to   { transform: translateY(0); }
 }
+@keyframes pwa-notif-pop {
+  from { transform: scale(0.7); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+@keyframes pulse {
+  from { opacity: 1; }
+  to   { opacity: 0.75; }
+}
 
 /* Modal overlay */
 
