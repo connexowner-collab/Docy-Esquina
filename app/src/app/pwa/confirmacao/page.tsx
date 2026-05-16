@@ -8,14 +8,22 @@ function ConfirmacaoContent() {
   const params = useSearchParams()
   const pedidoId = params.get('id')
   const numeroPedido = params.get('num')
+  const mesaParam = params.get('mesa')
+  const nomeParam = params.get('nome')
   const [clienteNome, setClienteNome] = useState('')
   const [animado, setAnimado] = useState(false)
 
+  const isMesa = !!mesaParam
+
   useEffect(() => {
-    const c = localStorage.getItem('pwa_cliente')
-    if (c) setClienteNome(JSON.parse(c).nome?.split(' ')[0] ?? '')
+    if (isMesa) {
+      setClienteNome(nomeParam?.split(' ')[0] ?? '')
+    } else {
+      const c = localStorage.getItem('pwa_cliente')
+      if (c) setClienteNome(JSON.parse(c).nome?.split(' ')[0] ?? '')
+    }
     setTimeout(() => setAnimado(true), 50)
-  }, [])
+  }, [isMesa, nomeParam])
 
   if (!pedidoId) {
     router.replace('/pwa')
@@ -41,11 +49,19 @@ function ConfirmacaoContent() {
         </svg>
       </div>
 
+      {isMesa && (
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#FEF2F2', border: '1px solid #C0392B', borderRadius: 10, padding: '6px 14px', marginBottom: 14 }}>
+          <span style={{ fontSize: 18 }}>🍽️</span>
+          <span style={{ fontWeight: 700, color: '#C0392B', fontSize: 14 }}>Mesa {mesaParam}</span>
+        </div>
+      )}
+
       <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 8px', color: 'var(--pwa-ink)' }}>
         Pedido enviado! 🎉
       </h2>
       <p style={{ fontSize: 14, color: 'var(--pwa-muted)', margin: '0 0 24px', lineHeight: 1.5 }}>
-        Recebemos seu pedido, {clienteNome}!<br />Aguarde a confirmação do estabelecimento.
+        {clienteNome ? `Recebemos seu pedido, ${clienteNome}!` : 'Pedido recebido!'}<br />
+        {isMesa ? 'Em breve seu pedido estará pronto.' : 'Aguarde a confirmação do estabelecimento.'}
       </p>
 
       {/* Card do pedido */}
@@ -57,25 +73,31 @@ function ConfirmacaoContent() {
           #{numeroPedido}
         </div>
         <div style={{ fontSize: 12, color: 'var(--pwa-amber-ink)', marginTop: 6, opacity: 0.8 }}>
-          Acompanhe o status em tempo real
+          {isMesa ? 'Sua comanda foi registrada' : 'Acompanhe o status em tempo real'}
         </div>
       </div>
 
       {/* Botões */}
       <div style={{ width: '100%', maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {!isMesa && (
+          <button
+            className="pwa-btn pwa-btn-primary"
+            onClick={() => router.push(`/pwa/status/${pedidoId}`)}>
+            Acompanhar pedido →
+          </button>
+        )}
         <button
           className="pwa-btn pwa-btn-primary"
-          onClick={() => router.push(`/pwa/status/${pedidoId}`)}>
-          Acompanhar pedido →
+          onClick={() => router.push('/pwa/cardapio')}>
+          {isMesa ? '🍽️ Pedir mais itens' : 'Fazer novo pedido'}
         </button>
-        <button
-          className="pwa-btn pwa-btn-outline"
-          onClick={() => {
-            sessionStorage.removeItem('pwa_cart')
-            router.push('/pwa/cardapio')
-          }}>
-          Fazer novo pedido
-        </button>
+        {!isMesa && (
+          <button
+            className="pwa-btn pwa-btn-outline"
+            onClick={() => router.push('/pwa')}>
+            Voltar ao início
+          </button>
+        )}
       </div>
     </div>
   )

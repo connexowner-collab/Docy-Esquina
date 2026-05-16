@@ -129,8 +129,8 @@ export default function PwaSacolaPage() {
       if (!res.ok) { setErro(data.error || 'Erro ao confirmar pedido'); return }
 
       sessionStorage.removeItem('pwa_cart')
-      if (mesaInfo) sessionStorage.removeItem('pwa_mesa')
-      router.push(`/pwa/confirmacao?id=${data.pedidoId}&num=${data.numeroPedido}`)
+      // pwa_mesa é mantido para permitir novos pedidos na mesma sessão de mesa
+      router.push(`/pwa/confirmacao?id=${data.pedidoId}&num=${data.numeroPedido}${mesaInfo ? `&mesa=${mesaInfo.numero}&nome=${encodeURIComponent(mesaInfo.nome)}` : ''}`)
     } catch {
       setErro('Erro de conexão. Tente novamente.')
     } finally {
