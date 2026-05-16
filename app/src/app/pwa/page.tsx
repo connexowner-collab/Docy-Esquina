@@ -258,7 +258,7 @@ export default function PwaIdentPage() {
       <div className="pwa-screen">
         <div className="pwa-hero" style={{ flex: 1, justifyContent: 'center' }}>
           <div className="pwa-hero-logo">
-            <img src="/LOGO.png" alt="Logo" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 45%' }} />
+            <img src="/LOGO.png" alt="Logo" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center' }} />
           </div>
           <h1>{config.nomeEstabelecimento}</h1>
           <p style={{ color: 'rgba(255,255,255,0.85)', marginTop: 12, textAlign: 'center', lineHeight: 1.5 }}>
@@ -277,7 +277,7 @@ export default function PwaIdentPage() {
       {/* Hero */}
       <div className="pwa-hero">
         <div className="pwa-hero-logo">
-          <img src="/LOGO.png" alt="Docy Esquina" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 45%' }} />
+          <img src="/LOGO.png" alt="Docy Esquina" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center' }} />
         </div>
         <h1>{config?.nomeEstabelecimento ?? 'Docy Esquina'}</h1>
         <div className="pwa-hero-status">

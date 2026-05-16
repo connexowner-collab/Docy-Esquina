@@ -5,10 +5,14 @@ export const metadata: Metadata = {
   title: 'Docy Esquina',
   description: 'Peça seu lanche favorito',
   manifest: '/pwa/manifest.json',
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Docy Esquina' },
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Docy Esquina' },
   icons: {
-    apple: '/LOGO.png',
-    icon: '/LOGO.png',
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    icon: [
+      { url: '/LOGO.png', type: 'image/png' },
+    ],
   },
 }
 
