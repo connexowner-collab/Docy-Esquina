@@ -20,11 +20,20 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { clienteId, enderecoId, tipoEntrega, itens, pagamento, troco, observacoes, taxaEntrega, subtotal, total } = body
-  const tipo = tipoEntrega === 'retirada' ? 'retirada' : 'entrega'
+  const { clienteId, enderecoId, tipoEntrega, mesa, nome, itens, pagamento, troco, observacoes, taxaEntrega, subtotal, total } = body
 
-  if (!clienteId || !itens?.length || !pagamento) {
+  // Pedido de mesa (consumo local)
+  const isMesa = tipoEntrega === 'local'
+  const tipo = isMesa ? 'local' : tipoEntrega === 'retirada' ? 'retirada' : 'entrega'
+
+  if (!itens?.length || !pagamento) {
     return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 })
+  }
+  if (!isMesa && !clienteId) {
+    return NextResponse.json({ error: 'clienteId obrigatório para pedidos online' }, { status: 400 })
+  }
+  if (isMesa && (!mesa || !nome)) {
+    return NextResponse.json({ error: 'Mesa e nome obrigatórios para pedido local' }, { status: 400 })
   }
   if (tipo === 'entrega' && !enderecoId) {
     return NextResponse.json({ error: 'Endereço obrigatório para entrega' }, { status: 400 })
@@ -40,10 +49,12 @@ export async function POST(req: NextRequest) {
   const { data: pedido, error: pedidoError } = await supabase
     .from('pedidos')
     .insert({
-      cliente_id: clienteId,
+      cliente_id: isMesa ? null : clienteId,
       endereco_id: tipo === 'entrega' ? enderecoId : null,
+      mesa_numero: isMesa ? Number(mesa) : null,
+      nome_local: isMesa ? nome : null,
       subtotal: subtotal ?? 0,
-      taxa_entrega: tipo === 'retirada' ? 0 : (taxaEntrega ?? 0),
+      taxa_entrega: (tipo === 'retirada' || tipo === 'local') ? 0 : (taxaEntrega ?? 0),
       total: total ?? subtotal ?? 0,
       pagamento,
       troco: troco || null,

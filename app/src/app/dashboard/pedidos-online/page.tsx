@@ -19,8 +19,10 @@ type Pedido = {
   pagamento: string
   troco?: number
   observacoes?: string
-  tipo_entrega: 'entrega' | 'retirada'
-  clientes: { nome: string; telefone: string }
+  tipo_entrega: 'entrega' | 'retirada' | 'local'
+  mesa_numero?: number | null
+  nome_local?: string | null
+  clientes: { nome: string; telefone: string } | null
   enderecos: { logradouro: string; numero: string; bairro: string } | null
   itens_pedido: { nome_snapshot: string; preco_snapshot: number; quantidade: number; observacao_item?: string }[]
 }
@@ -44,13 +46,20 @@ function fmtDataCurta(iso: string) {
 
 async function imprimir(pedido: Pedido) {
   const { imprimirComanda } = await import('@/lib/print/printService')
+  const nomeCliente = pedido.tipo_entrega === 'local'
+    ? pedido.nome_local ?? 'Mesa'
+    : (pedido.clientes?.nome ?? '')
+  const telCliente = pedido.clientes?.telefone ?? ''
+  const enderecoComanda = pedido.tipo_entrega === 'retirada'
+    ? { logradouro: 'Retirada na Loja', numero: '', bairro: '' }
+    : pedido.tipo_entrega === 'local'
+    ? { logradouro: `Mesa ${pedido.mesa_numero}`, numero: '', bairro: 'Consumo local' }
+    : (pedido.enderecos ?? { logradouro: '', numero: '', bairro: '' })
   imprimirComanda({
     numero_seq: pedido.numero_seq,
     created_at: pedido.created_at,
-    clientes: pedido.clientes,
-    enderecos: pedido.tipo_entrega === 'retirada'
-      ? { logradouro: 'Retirada na Loja', numero: '', bairro: '' }
-      : (pedido.enderecos ?? { logradouro: '', numero: '', bairro: '' }),
+    clientes: { nome: nomeCliente, telefone: telCliente },
+    enderecos: enderecoComanda,
     itens_pedido: pedido.itens_pedido.map(i => ({
       nome_snapshot: i.nome_snapshot,
       quantidade: i.quantidade,
@@ -71,7 +80,7 @@ const COLUNAS_KANBAN = [
   { id: 'aguardando', label: 'Aguardando',  emoji: '🕐', cor: '#E8870A', bg: '#FFF8F0', borda: '#F5C070' },
   { id: 'em_preparo', label: 'Em Preparo',  emoji: '🍳', cor: '#185FA5', bg: '#EEF4FC', borda: '#B5D4F4' },
   { id: 'em_entrega', label: 'Em Entrega',  emoji: '🛵', cor: '#6B3FA0', bg: '#F5EFFC', borda: '#D4B5F4' },
-  { id: 'entregue',   label: 'Entregue',    emoji: '✅', cor: '#0F6E56', bg: '#EEF8F4', borda: '#9FE1CB' },
+  { id: 'entregue',   label: 'Concluído',   emoji: '✅', cor: '#0F6E56', bg: '#EEF8F4', borda: '#9FE1CB' },
   { id: 'recusado',   label: 'Recusado',    emoji: '❌', cor: '#B33A3A', bg: '#FEF2F2', borda: '#F09595' },
 ] as const
 
@@ -104,6 +113,7 @@ export default function PedidosOnlinePage() {
       .select(`
         id, numero_seq, status_pedido, status_validacao, motivo_recusa,
         created_at, subtotal, taxa_entrega, total, pagamento, troco, observacoes, tipo_entrega,
+        mesa_numero, nome_local,
         clientes(nome, telefone),
         enderecos(logradouro, numero, bairro),
         itens_pedido(nome_snapshot, preco_snapshot, quantidade, observacao_item)
@@ -241,7 +251,17 @@ export default function PedidosOnlinePage() {
 
         {/* Corpo */}
         <div style={{ padding: '8px 12px' }}>
-          <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>{pedido.clientes?.nome}</div>
+          {/* Nome do cliente ou mesa */}
+          {pedido.tipo_entrega === 'local' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <span style={{ background: '#FEF2F2', color: '#C0392B', border: '1px solid #C0392B', borderRadius: 6, padding: '2px 8px', fontWeight: 800, fontSize: 12 }}>
+                🍽️ Mesa {pedido.mesa_numero}
+              </span>
+              <span style={{ fontWeight: 600, fontSize: 12, color: '#555' }}>{pedido.nome_local}</span>
+            </div>
+          ) : (
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>{pedido.clientes?.nome}</div>
+          )}
 
           <div style={{ marginBottom: 6 }}>
             {pedido.itens_pedido?.map((item, i) => (
@@ -253,7 +273,9 @@ export default function PedidosOnlinePage() {
           </div>
 
           <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>
-            {pedido.tipo_entrega === 'retirada' ? (
+            {pedido.tipo_entrega === 'local' ? (
+              <span style={{ background: '#FEF2F2', color: '#C0392B', borderRadius: 6, padding: '2px 6px', fontWeight: 600 }}>🍽️ Consumo local</span>
+            ) : pedido.tipo_entrega === 'retirada' ? (
               <span style={{ background: '#E1F5EE', color: '#0F6E56', borderRadius: 6, padding: '2px 6px', fontWeight: 600 }}>🏪 Retirada</span>
             ) : (
               <>📍 {pedido.enderecos?.logradouro}, {pedido.enderecos?.numero} — {pedido.enderecos?.bairro}</>
@@ -314,6 +336,12 @@ export default function PedidosOnlinePage() {
                 {processando === pedido.id ? '...' : '🏪 Confirmar retirada'}
               </button>
             )}
+            {pedido.status_pedido === 'em_preparo' && pedido.tipo_entrega === 'local' && (
+              <button onClick={() => avancarStatus(pedido.id, 'entregue')} disabled={processando === pedido.id}
+                style={{ flex: 1, padding: '7px', background: '#E1F5EE', border: '1px solid #9FE1CB', borderRadius: 8, color: '#0F6E56', fontWeight: 600, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {processando === pedido.id ? '...' : '✓ Pronto / Servido'}
+              </button>
+            )}
             {pedido.status_pedido === 'em_entrega' && (
               <button onClick={() => avancarStatus(pedido.id, 'entregue')} disabled={processando === pedido.id}
                 style={{ flex: 1, padding: '7px', background: '#E1F5EE', border: '1px solid #9FE1CB', borderRadius: 8, color: '#0F6E56', fontWeight: 600, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -322,7 +350,7 @@ export default function PedidosOnlinePage() {
             )}
             {pedido.status_pedido === 'entregue' && (
               <span style={{ flex: 1, padding: '7px', background: '#E1F5EE', borderRadius: 8, color: '#0F6E56', fontWeight: 600, fontSize: 11, textAlign: 'center' }}>
-                {pedido.tipo_entrega === 'retirada' ? '✓ Retirado' : '✓ Entregue'}
+                {pedido.tipo_entrega === 'retirada' ? '✓ Retirado' : pedido.tipo_entrega === 'local' ? '✓ Servido' : '✓ Entregue'}
               </span>
             )}
             <button onClick={() => imprimir(pedido)}
