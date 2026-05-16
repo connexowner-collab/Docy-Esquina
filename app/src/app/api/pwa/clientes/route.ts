@@ -69,9 +69,10 @@ export async function POST(req: NextRequest) {
   }
 
   let enderecoId: number | null = null
+  let mapped: Array<{ cliente_id: number; logradouro: string; numero: string; complemento: string | null; bairro: string; referencia: string | null; cep: string | null; distancia_km: number | null }> = []
 
   if (enderecos && Array.isArray(enderecos) && enderecos.length > 0) {
-    const mapped = await Promise.all(
+    mapped = await Promise.all(
       enderecos.map(async (e: Record<string, string>) => {
         let distancia_km: number | null = null
 
