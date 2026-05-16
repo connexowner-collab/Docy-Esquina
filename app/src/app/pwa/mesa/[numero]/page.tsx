@@ -12,23 +12,34 @@ export default function PwaMesaPage() {
   const [config, setConfig] = useState<{ aberto: boolean; nomeEstabelecimento: string; mensagemFechado: string } | null>(null)
   const [erro, setErro] = useState('')
   const [verificando, setVerificando] = useState(false)
+  const [carregando, setCarregando] = useState(true)
 
   useEffect(() => {
-    fetch('/api/pwa/config').then(r => r.json()).then(setConfig).catch(() => {})
-    // Limpa carrinho mas mantém sessão de mesa se existir
+    // Limpa dados de cliente e carrinho
     sessionStorage.removeItem('pwa_cart')
     localStorage.removeItem('pwa_cliente')
     localStorage.removeItem('pwa_endereco_id')
-    // Se já tem sessão de mesa ativa no sessionStorage, vai direto pra comanda
-    const mesaRaw = sessionStorage.getItem('pwa_mesa')
-    if (mesaRaw) {
-      const mesa = JSON.parse(mesaRaw)
-      if (mesa.numero === numero) {
-        router.replace(`/pwa/mesa/${numero}/comanda`)
-        return
-      }
-    }
-    sessionStorage.removeItem('pwa_mesa')
+
+    // Carrega config do estabelecimento
+    fetch('/api/pwa/config').then(r => r.json()).then(setConfig).catch(() => {})
+
+    // Verifica se já existe sessão aberta para esta mesa (sem precisar de nome)
+    fetch(`/api/mesas/sessoes/ativa?mesa=${numero}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.sessao) {
+          // Existe sessão aberta — restaura no sessionStorage e vai direto pra comanda
+          sessionStorage.setItem('pwa_mesa', JSON.stringify({
+            numero,
+            nome: data.sessao.nome_cliente,
+          }))
+          router.replace(`/pwa/mesa/${numero}/comanda`)
+        } else {
+          // Mesa livre — mostra formulário de nome
+          setCarregando(false)
+        }
+      })
+      .catch(() => setCarregando(false))
   }, [numero, router])
 
   async function handleEntrar(e: React.FormEvent) {
@@ -37,23 +48,17 @@ export default function PwaMesaPage() {
     setVerificando(true)
     setErro('')
 
-    // Salva sessão e verifica se já existe pedido aberto
     sessionStorage.setItem('pwa_mesa', JSON.stringify({ numero, nome: nome.trim() }))
+    router.push('/pwa/cardapio')
+  }
 
-    try {
-      const res = await fetch(`/api/mesas/sessoes/ativa?mesa=${numero}&nome=${encodeURIComponent(nome.trim())}`)
-      const data = await res.json()
-
-      if (data.sessao && data.sessao.pedidos?.length > 0) {
-        // Tem sessão com pedidos → vai pra comanda
-        router.push(`/pwa/mesa/${numero}/comanda`)
-      } else {
-        // Sem sessão ou sessão vazia → vai direto pro cardápio
-        router.push('/pwa/cardapio')
-      }
-    } catch {
-      router.push('/pwa/cardapio')
-    }
+  // Enquanto verifica sessão aberta, mostra spinner
+  if (carregando) {
+    return (
+      <div className="pwa-screen" style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <div className="pwa-spinner" />
+      </div>
+    )
   }
 
   if (config && !config.aberto) {
@@ -115,7 +120,7 @@ export default function PwaMesaPage() {
           {erro && <p style={{ color: 'var(--pwa-red-ink)', fontSize: 13, marginBottom: 12 }}>{erro}</p>}
 
           <button className="pwa-btn pwa-btn-primary" type="submit" disabled={verificando}>
-            {verificando ? 'Verificando...' : '🛒 Ver cardápio →'}
+            {verificando ? 'Aguarde...' : '🛒 Abrir cardápio →'}
           </button>
         </form>
       </div>
