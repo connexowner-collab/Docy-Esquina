@@ -46,6 +46,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Restaurante fechado no momento.' }, { status: 503 })
   }
 
+  // Sessão de mesa: encontra sessão aberta ou cria nova
+  let sessaoMesaId: number | null = null
+  if (isMesa) {
+    const { data: sessaoExistente } = await supabase
+      .from('sessoes_mesa')
+      .select('id')
+      .eq('mesa_numero', Number(mesa))
+      .ilike('nome_cliente', nome)
+      .eq('status', 'aberta')
+      .order('aberta_em', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (sessaoExistente) {
+      sessaoMesaId = sessaoExistente.id
+    } else {
+      const { data: novaSessao } = await supabase
+        .from('sessoes_mesa')
+        .insert({ mesa_numero: Number(mesa), nome_cliente: nome, status: 'aberta' })
+        .select('id')
+        .single()
+      if (novaSessao) sessaoMesaId = novaSessao.id
+    }
+  }
+
   const { data: pedido, error: pedidoError } = await supabase
     .from('pedidos')
     .insert({
@@ -53,13 +78,14 @@ export async function POST(req: NextRequest) {
       endereco_id: tipo === 'entrega' ? enderecoId : null,
       mesa_numero: isMesa ? Number(mesa) : null,
       nome_local: isMesa ? nome : null,
+      sessao_mesa_id: sessaoMesaId,
       subtotal: subtotal ?? 0,
       taxa_entrega: (tipo === 'retirada' || tipo === 'local') ? 0 : (taxaEntrega ?? 0),
       total: total ?? subtotal ?? 0,
-      pagamento,
+      pagamento: pagamento ?? 'pendente',
       troco: troco || null,
       observacoes: observacoes || null,
-      origem: 'pwa',
+      origem: isMesa ? 'mesa' : 'pwa',
       tipo_entrega: tipo,
       status_pedido: 'pendente',
       status_validacao: 'pendente',

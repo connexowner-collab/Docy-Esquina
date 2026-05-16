@@ -13,14 +13,17 @@ type Pedido = {
   subtotal: number
   taxa_entrega: number
   total: number
-  pagamento: 'pix' | 'dinheiro' | 'debito' | 'credito'
+  pagamento: 'pix' | 'dinheiro' | 'debito' | 'credito' | 'pendente'
   troco: number | null
   observacoes: string | null
   distancia_km: number
   origem?: string | null
+  tipo_entrega?: string | null
+  mesa_numero?: number | null
+  nome_local?: string | null
   desconsiderado?: boolean
-  clientes: ClientePedido
-  enderecos: EnderecoPedido
+  clientes: ClientePedido | null
+  enderecos: EnderecoPedido | null
   itens_pedido: ItemPedido[]
 }
 type ResumoDia = {
@@ -139,17 +142,17 @@ export default function HistoricoPage() {
     const rows = pedidos.map(p => ({
       '#': p.numero_seq,
       'Data/Hora': fmtData(p.created_at),
-      'Cliente': p.clientes?.nome ?? '',
-      'Telefone': formatTelefone(p.clientes?.telefone ?? ''),
+      'Cliente': p.tipo_entrega === 'local' ? (p.nome_local ?? '') : (p.clientes?.nome ?? ''),
+      'Telefone': p.tipo_entrega === 'local' ? `Mesa ${p.mesa_numero}` : formatTelefone(p.clientes?.telefone ?? ''),
       'Itens': p.itens_pedido?.map(i => `${i.quantidade}x ${i.nome_snapshot}`).join(', ') ?? '',
-      'Endereço': p.enderecos ? `${p.enderecos.logradouro}, ${p.enderecos.numero} — ${p.enderecos.bairro}` : '',
+      'Endereço': p.tipo_entrega === 'local' ? `Mesa ${p.mesa_numero} — Consumo local` : (p.enderecos ? `${p.enderecos.logradouro}, ${p.enderecos.numero} — ${p.enderecos.bairro}` : ''),
       'Subtotal': Number(p.subtotal),
       'Taxa Entrega': Number(p.taxa_entrega),
       'Total': Number(p.total),
       'Pagamento': pagamentoLabel[p.pagamento] ?? p.pagamento,
       'Troco': p.troco ? Number(p.troco) : '',
       'Observações': p.observacoes ?? '',
-      'Origem': p.origem === 'pwa' ? 'App' : 'Portal',
+      'Origem': p.origem === 'mesa' ? 'Mesa' : p.origem === 'pwa' ? 'App' : 'Portal',
     }))
     const ws = utils.json_to_sheet(rows)
     const wb = utils.book_new()
@@ -260,8 +263,17 @@ export default function HistoricoPage() {
                 </td>
                 <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fmtData(p.created_at)}</td>
                 <td style={{ padding: '10px 12px' }}>
-                  <p style={{ fontWeight: 500, fontSize: 13 }}>{p.clientes?.nome}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatTelefone(p.clientes?.telefone ?? '')}</p>
+                  {p.tipo_entrega === 'local' ? (
+                    <>
+                      <p style={{ fontWeight: 500, fontSize: 13 }}>{p.nome_local}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>🍽️ Mesa {p.mesa_numero}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p style={{ fontWeight: 500, fontSize: 13 }}>{p.clientes?.nome}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatTelefone(p.clientes?.telefone ?? '')}</p>
+                    </>
+                  )}
                 </td>
                 <td style={{ padding: '10px 12px', fontSize: 12 }}>
                   {p.itens_pedido?.slice(0, 2).map(i => (
@@ -279,7 +291,9 @@ export default function HistoricoPage() {
                   </span>
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                  {p.origem === 'pwa' ? (
+                  {p.origem === 'mesa' ? (
+                    <span style={{ background: '#C0392B', color: '#fff', fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6, letterSpacing: 0.5 }}>Mesa</span>
+                  ) : p.origem === 'pwa' ? (
                     <span style={{ background: '#0F6E56', color: '#fff', fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6, letterSpacing: 0.5 }}>App</span>
                   ) : (
                     <span style={{ color: '#bbb', fontSize: 11 }}>Portal</span>
