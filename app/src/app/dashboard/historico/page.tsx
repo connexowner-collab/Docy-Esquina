@@ -307,8 +307,12 @@ export default function HistoricoPage() {
                       onClick={() => imprimirComanda({
                         numero_seq: p.numero_seq,
                         created_at: p.created_at,
-                        clientes: { nome: p.clientes?.nome ?? '', telefone: p.clientes?.telefone ?? '' },
-                        enderecos: { logradouro: p.enderecos?.logradouro ?? '', numero: p.enderecos?.numero ?? '', complemento: p.enderecos?.complemento ?? null, bairro: p.enderecos?.bairro ?? '', referencia: p.enderecos?.referencia ?? null },
+                        clientes: p.tipo_entrega === 'local'
+                          ? { nome: p.nome_local ?? '', telefone: `Mesa ${p.mesa_numero}` }
+                          : { nome: p.clientes?.nome ?? '', telefone: p.clientes?.telefone ?? '' },
+                        enderecos: p.tipo_entrega === 'local'
+                          ? { logradouro: `Mesa ${p.mesa_numero}`, numero: '', complemento: null, bairro: 'Consumo local', referencia: null }
+                          : { logradouro: p.enderecos?.logradouro ?? '', numero: p.enderecos?.numero ?? '', complemento: p.enderecos?.complemento ?? null, bairro: p.enderecos?.bairro ?? '', referencia: p.enderecos?.referencia ?? null },
                         itens_pedido: (p.itens_pedido ?? []).map(i => ({ nome_snapshot: i.nome_snapshot, quantidade: i.quantidade, preco_snapshot: i.preco_snapshot, subtotal: i.subtotal, observacao: i.observacao ?? null })),
                         subtotal: Number(p.subtotal),
                         taxa_entrega: Number(p.taxa_entrega),
