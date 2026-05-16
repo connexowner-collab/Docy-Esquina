@@ -1,100 +1,103 @@
-// ─── Web Audio API (beeps de apoio) ──────────────────────────────────────────
-let ctx: AudioContext | null = null
+// ─── Gerenciador de áudio ─────────────────────────────────────────────────────
+// iOS/Android bloqueiam áudio até o usuário tocar na tela.
+// Chame `desbloquearAudio()` dentro de um handler de click/touch.
 
-function getCtx(): AudioContext {
-  if (!ctx || ctx.state === 'closed') ctx = new AudioContext()
-  if (ctx.state === 'suspended') ctx.resume()
-  return ctx
+let desbloqueado = false
+const audioCache: Record<string, HTMLAudioElement> = {}
+
+function criarAudio(src: string): HTMLAudioElement {
+  if (audioCache[src]) return audioCache[src]
+  const el = new Audio(src)
+  el.preload = 'auto'
+  audioCache[src] = el
+  return el
 }
 
-function beep(freq: number, startOffset: number, dur: number, vol = 0.35, type: OscillatorType = 'sine') {
+// Chame isso em qualquer interação do usuário para desbloquear áudio no iOS/Android
+export function desbloquearAudio() {
+  if (desbloqueado) return
+  // Desbloqueia Web Audio Context com um buffer de silêncio de 1 frame
   try {
-    const c = getCtx()
-    const osc = c.createOscillator()
-    const gain = c.createGain()
-    osc.connect(gain)
-    gain.connect(c.destination)
-    osc.type = type
-    osc.frequency.value = freq
-    gain.gain.setValueAtTime(vol, c.currentTime + startOffset)
-    gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + startOffset + dur)
-    osc.start(c.currentTime + startOffset)
-    osc.stop(c.currentTime + startOffset + dur)
+    const tmpCtx = new AudioContext()
+    const buf = tmpCtx.createBuffer(1, 1, 22050)
+    const src = tmpCtx.createBufferSource()
+    src.buffer = buf
+    src.connect(tmpCtx.destination)
+    src.start(0)
+    src.onended = () => { tmpCtx.close(); desbloqueado = true }
   } catch {}
+  // Pré-carrega os arquivos de áudio enquanto há gesto ativo
+  Object.values(SONS).forEach(src => criarAudio(src))
 }
 
-// ─── Web Speech API (voz em português) ───────────────────────────────────────
-function falar(texto: string, delayMs = 0) {
+export function audioDesbloqueado() { return desbloqueado }
+
+// ─── Mapa de arquivos de áudio ────────────────────────────────────────────────
+// Coloque os arquivos MP3 em public/sounds/
+const SONS = {
+  'novo-pedido':      '/sounds/novo-pedido.mp3',
+  'pedido-aceito':    '/sounds/pedido-aceito.mp3',
+  'saiu-entrega':     '/sounds/saiu-entrega.mp3',
+  'pedido-entregue':  '/sounds/pedido-entregue.mp3',
+  'pedido-recusado':  '/sounds/pedido-recusado.mp3',
+} as const
+
+type SomKey = keyof typeof SONS
+
+function tocar(chave: SomKey) {
+  try {
+    const audio = criarAudio(SONS[chave])
+    audio.currentTime = 0
+    audio.play().catch(() => {
+      // Fallback: Web Speech API se áudio falhar
+      falarFallback(chave)
+    })
+  } catch {
+    falarFallback(chave)
+  }
+}
+
+// ─── Fallback: Web Speech API (quando não há arquivo ou falha) ────────────────
+const TEXTOS_FALLBACK: Record<SomKey, string> = {
+  'novo-pedido':     'Novo pedido recebido!',
+  'pedido-aceito':   'Seu pedido foi aceito e está sendo preparado!',
+  'saiu-entrega':    'Seu pedido saiu para entrega!',
+  'pedido-entregue': 'Pedido entregue. Bom apetite!',
+  'pedido-recusado': 'Infelizmente seu pedido foi recusado.',
+}
+
+function falarFallback(chave: SomKey) {
   if (typeof speechSynthesis === 'undefined') return
-
-  const speak = () => {
-    speechSynthesis.cancel()
-    const u = new SpeechSynthesisUtterance(texto)
-    u.lang = 'pt-BR'
-    u.rate = 0.92   // levemente mais lento — mais claro
-    u.pitch = 1.05
-    u.volume = 1.0
-
-    // Tenta usar voz PT-BR; se não achar usa a padrão
+  speechSynthesis.cancel()
+  const u = new SpeechSynthesisUtterance(TEXTOS_FALLBACK[chave])
+  u.lang = 'pt-BR'
+  u.rate = 0.92
+  u.pitch = 1.05
+  u.volume = 1.0
+  const trySpeak = () => {
     const voices = speechSynthesis.getVoices()
-    const ptVoz = voices.find(v => v.lang === 'pt-BR')
-      ?? voices.find(v => v.lang.startsWith('pt'))
+    const ptVoz = voices.find(v => v.lang === 'pt-BR') ?? voices.find(v => v.lang.startsWith('pt'))
     if (ptVoz) u.voice = ptVoz
-
     speechSynthesis.speak(u)
   }
-
-  if (delayMs > 0) {
-    setTimeout(speak, delayMs)
-  } else if (speechSynthesis.getVoices().length > 0) {
-    speak()
-  } else {
-    // Vozes carregam de forma assíncrona em alguns browsers
-    speechSynthesis.addEventListener('voiceschanged', speak, { once: true })
-  }
+  if (speechSynthesis.getVoices().length > 0) trySpeak()
+  else speechSynthesis.addEventListener('voiceschanged', trySpeak, { once: true })
 }
 
-// ─── Alertas dashboard (novo pedido) ─────────────────────────────────────────
+// ─── Exports públicos ─────────────────────────────────────────────────────────
 export function playNewOrderAlert() {
-  // 3 bipes urgentes + voz
-  beep(880, 0.00, 0.10, 0.45, 'square')
-  beep(880, 0.18, 0.10, 0.45, 'square')
-  beep(880, 0.36, 0.18, 0.45, 'square')
-  falar('Novo pedido recebido!', 700)
+  tocar('novo-pedido')
 }
 
-// ─── Sons por status (PWA cliente) ───────────────────────────────────────────
 export function playSoundPorStatus(status: string) {
   switch (status) {
-    case 'em_preparo':
-      beep(523, 0.00, 0.12) // C5
-      beep(659, 0.18, 0.20) // E5
-      falar('Seu pedido foi aceito e está sendo preparado!', 500)
-      break
-
-    case 'em_entrega':
-      beep(440, 0.00, 0.10) // A4
-      beep(554, 0.16, 0.10) // C#5
-      beep(659, 0.32, 0.22) // E5
-      falar('Seu pedido saiu para entrega!', 600)
-      break
-
-    case 'entregue':
-      beep(523, 0.00, 0.10) // C5
-      beep(659, 0.14, 0.10) // E5
-      beep(784, 0.28, 0.30) // G5
-      falar('Pedido entregue. Bom apetite!', 500)
-      break
-
-    case 'recusado':
-      beep(440, 0.00, 0.20) // A4
-      beep(349, 0.28, 0.30) // F4 (descendente)
-      falar('Infelizmente seu pedido foi recusado.', 600)
-      break
+    case 'em_preparo': tocar('pedido-aceito'); break
+    case 'em_entrega': tocar('saiu-entrega'); break
+    case 'entregue':   tocar('pedido-entregue'); break
+    case 'recusado':   tocar('pedido-recusado'); break
   }
 }
 
-// ─── Utilitários ─────────────────────────────────────────────────────────────
 export function vibrar(pattern: number | number[] = [200, 100, 200]) {
   try {
     if ('vibrate' in navigator) navigator.vibrate(pattern)

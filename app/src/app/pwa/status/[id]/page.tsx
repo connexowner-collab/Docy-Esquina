@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { playSoundPorStatus, vibrar, pedirPermissaoNotificacao, mostrarNotificacaoBrowser } from '@/lib/notificationSound'
+import { playSoundPorStatus, vibrar, pedirPermissaoNotificacao, mostrarNotificacaoBrowser, desbloquearAudio, audioDesbloqueado } from '@/lib/notificationSound'
 
 type StatusPedido = 'pendente' | 'em_preparo' | 'em_entrega' | 'entregue' | 'recusado'
 
@@ -76,6 +76,7 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
   const [erro, setErro] = useState('')
   const [tempoAtual, setTempoAtual] = useState(Date.now())
   const [notifBanner, setNotifBanner] = useState<{ icone: string; titulo: string; cor: string } | null>(null)
+  const [somAtivado, setSomAtivado] = useState(false)
 
   function dispararNotificacao(status: StatusPedido) {
     const info = STATUS_INFO[status]
@@ -294,8 +295,32 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
         {/* Ações */}
         <div style={{ padding: '0 12px' }}>
           {status !== 'entregue' && status !== 'recusado' && (
-            <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--pwa-muted)', padding: '4px 0 12px' }}>
-              Esta página atualiza automaticamente em tempo real
+            <div style={{ textAlign: 'center', padding: '4px 0 12px' }}>
+              <p style={{ fontSize: 12, color: 'var(--pwa-muted)', margin: '0 0 10px' }}>
+                Esta página atualiza automaticamente em tempo real
+              </p>
+              {!somAtivado ? (
+                <button
+                  onClick={() => {
+                    desbloquearAudio()
+                    pedirPermissaoNotificacao()
+                    setSomAtivado(true)
+                  }}
+                  style={{
+                    background: 'var(--pwa-primary)', color: '#fff',
+                    border: 'none', borderRadius: 20, padding: '9px 20px',
+                    fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    boxShadow: '0 4px 14px -4px rgba(192,57,43,0.5)',
+                  }}
+                >
+                  🔔 Ativar som de notificação
+                </button>
+              ) : (
+                <p style={{ fontSize: 12, color: '#0F6E56', fontWeight: 600 }}>
+                  🔊 Som ativado — você será notificado quando o status mudar
+                </p>
+              )}
             </div>
           )}
           <button

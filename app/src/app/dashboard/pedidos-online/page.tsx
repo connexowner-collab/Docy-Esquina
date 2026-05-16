@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { playNewOrderAlert, pedirPermissaoNotificacao, mostrarNotificacaoBrowser } from '@/lib/notificationSound'
+import { playNewOrderAlert, pedirPermissaoNotificacao, mostrarNotificacaoBrowser, desbloquearAudio } from '@/lib/notificationSound'
 
 type StatusPedido = 'pendente' | 'em_preparo' | 'em_entrega' | 'entregue' | 'recusado'
 
@@ -409,11 +409,12 @@ export default function PedidosOnlinePage() {
           {!notifPermitida && typeof Notification !== 'undefined' && Notification.permission !== 'denied' && (
             <button
               onClick={async () => {
+                desbloquearAudio()
                 const perm = await pedirPermissaoNotificacao()
                 setNotifPermitida(perm === 'granted')
               }}
               style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, border: '1px solid #E8870A', background: '#FDF3E3', color: '#B8600A', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, whiteSpace: 'nowrap' }}>
-              🔔 Ativar notificações
+              🔔 Ativar notificações e som
             </button>
           )}
           {notifPermitida && (
