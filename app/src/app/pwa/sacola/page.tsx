@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 type CartItem = { itemId: number; nome: string; preco: number; qty: number; observacao: string }
-type Endereco = { id: number; logradouro: string; numero: string; bairro: string; complemento?: string; cep?: string; distancia_km?: number | null }
+type Endereco = { id: number; logradouro: string; numero: string; bairro: string; complemento?: string; cep?: string; distancia_km?: number | null; taxa_entrega?: number | null }
 type Pagamento = 'pix' | 'dinheiro' | 'debito' | 'credito'
 type MesaInfo = { numero: number; nome: string }
 
@@ -60,26 +60,53 @@ export default function PwaSacolaPage() {
     const end: Endereco | undefined = c.enderecos?.find((e: Endereco) => e.id === Number(endId))
     if (end) setEndereco(end)
 
-    // Taxa de entrega: usa distancia_km salva no cadastro (sem recalcular)
+    // Taxa de entrega: usa taxa_entrega salva no cadastro do endereço.
+    // Fallback: recalcula a partir de distancia_km + config se taxa_entrega for null.
     const calcularTaxa = async (end?: Endereco) => {
       setCarregandoTaxa(true)
       try {
-        const body: Record<string, unknown> = {}
         if (end?.distancia_km != null && end.distancia_km > 0) {
-          body.km_manual = end.distancia_km
           setDistanciaKm(end.distancia_km)
-        } else if (end?.bairro) {
-          body.bairro = end.bairro
         }
-        if (Object.keys(body).length > 0) {
-          const res = await fetch('/api/frete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+
+        // 1ª opção: taxa já salva no endereço — usa diretamente
+        if (end?.taxa_entrega != null) {
+          setTaxaEntregaBase(end.taxa_entrega)
+          return
+        }
+
+        // 2ª opção: distancia_km salva — recalcula via config
+        if (end?.distancia_km != null && end.distancia_km > 0) {
+          const res = await fetch('/api/frete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ km_manual: end.distancia_km, bairro: end.bairro }),
+          })
+          if (res.ok) { const f = await res.json(); setTaxaEntregaBase(f.taxa ?? 0); return }
+          // fallback local se /api/frete falhar
+          const cfg = await fetch('/api/pwa/config').then(r => r.json()).catch(() => ({}))
+          const taxa = Number(cfg.taxaMinima ?? 5) +
+            Math.max(0, end.distancia_km - Number(cfg.kmBase ?? 2)) * Number(cfg.valorPorKm ?? 2)
+          setTaxaEntregaBase(Math.round(taxa * 100) / 100)
+          return
+        }
+
+        // 3ª opção: só bairro disponível
+        if (end?.bairro) {
+          const res = await fetch('/api/frete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bairro: end.bairro }),
+          })
           if (res.ok) { const f = await res.json(); setTaxaEntregaBase(f.taxa ?? 0); return }
         }
+
+        // Último recurso: taxa mínima da config
         const cfg = await fetch('/api/pwa/config').then(r => r.json()).catch(() => ({ taxaMinima: 5 }))
-        setTaxaEntregaBase(cfg.taxaMinima ?? 5)
+        setTaxaEntregaBase(Number(cfg.taxaMinima ?? 5))
       } catch {
         const cfg = await fetch('/api/pwa/config').then(r => r.json()).catch(() => ({ taxaMinima: 5 }))
-        setTaxaEntregaBase(cfg.taxaMinima ?? 5)
+        setTaxaEntregaBase(Number(cfg.taxaMinima ?? 5))
       } finally {
         setCarregandoTaxa(false)
       }

@@ -27,6 +27,7 @@ type Endereco = {
   referencia?: string
   cep?: string
   distancia_km?: number | null
+  taxa_entrega?: number | null
 }
 
 type PedidoResumo = {
@@ -209,6 +210,7 @@ export default function PwaIdentPage() {
           bairro: novoBairro,
           cep: novoCep || undefined,
           distancia_km: data.distancia_km ?? null,
+          taxa_entrega: data.taxa ?? null,
         }],
       }
 
@@ -261,6 +263,7 @@ export default function PwaIdentPage() {
         bairro: data.bairro,
         cep: data.cep || undefined,
         distancia_km: data.distancia_km ?? null,
+        taxa_entrega: data.taxa_entrega ?? data.taxa ?? null,
       }
       const clienteAtualizado = { ...cliente, enderecos: [...cliente.enderecos, novoEndereco] }
       setCliente(clienteAtualizado)

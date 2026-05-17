@@ -36,24 +36,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const { data, error } = await supabase
-    .from('enderecos')
-    .insert({
-      cliente_id: clienteId,
-      logradouro: logradouro.trim(),
-      numero: numero.trim(),
-      complemento: complemento?.trim() || null,
-      bairro: bairro.trim(),
-      cep: cep?.replace(/\D/g, '') || null,
-      referencia: referencia?.trim() || null,
-      distancia_km,
-    })
-    .select('id, logradouro, numero, complemento, bairro, cep, distancia_km')
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  // Calcula taxa para retornar ao frontend (popup)
+  // Calcula taxa para salvar no endereço (e retornar ao popup)
   let taxa: number | null = null
   if (distancia_km !== null) {
     const { data: taxaBairro } = await supabase.from('taxas_bairro').select('taxa').eq('bairro', bairro.trim()).maybeSingle()
@@ -68,6 +51,24 @@ export async function POST(req: NextRequest) {
       }
     }
   }
+
+  const { data, error } = await supabase
+    .from('enderecos')
+    .insert({
+      cliente_id: clienteId,
+      logradouro: logradouro.trim(),
+      numero: numero.trim(),
+      complemento: complemento?.trim() || null,
+      bairro: bairro.trim(),
+      cep: cep?.replace(/\D/g, '') || null,
+      referencia: referencia?.trim() || null,
+      distancia_km,
+      taxa_entrega: taxa,
+    })
+    .select('id, logradouro, numero, complemento, bairro, cep, distancia_km, taxa_entrega')
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ ...data, taxa, fonte_distancia }, { status: 201 })
 }
