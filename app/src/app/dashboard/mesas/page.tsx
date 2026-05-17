@@ -135,7 +135,7 @@ export default function MesasPage() {
             onClick={() => { setVerFechadas(!verFechadas); if (!verFechadas) carregarFechadas() }}
             style={{ padding: '9px 16px', background: '#fff', border: '1.5px solid #E0DDD5', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: '#555' }}
           >
-            {verFechadas ? 'Ocultar fechadas' : '📋 Ver fechadas hoje'}
+            {verFechadas ? 'Ocultar fechadas' : '📋 Ver mesas fechadas'}
           </button>
           <button
             onClick={carregarSessoes}
@@ -222,17 +222,17 @@ export default function MesasPage() {
         </div>
       )}
 
-      {/* Sessões fechadas hoje */}
+      {/* Sessões fechadas */}
       {verFechadas && (
         <div style={{ marginTop: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: 1.2, margin: 0 }}>Fechadas hoje</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: 1.2, margin: 0 }}>Mesas fechadas</p>
             <div style={{ flex: 1, height: 1, background: '#e8e8ee' }} />
           </div>
           {loadingFechadas ? (
             <div style={{ textAlign: 'center', padding: 24, color: '#aaa' }}>Carregando...</div>
           ) : sessoesFechadas.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 24, color: '#aaa', fontSize: 13 }}>Nenhuma mesa fechada hoje ainda</div>
+            <div style={{ textAlign: 'center', padding: 24, color: '#aaa', fontSize: 13 }}>Nenhuma mesa fechada ainda</div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
               {sessoesFechadas.map(sessao => {

@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-// GET /api/mesas/sessoes/fechadas — sessões fechadas hoje
+// GET /api/mesas/sessoes/fechadas — todas as sessões fechadas
 export async function GET() {
   const supabase = createAdminClient()
-
-  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 
   const { data, error } = await supabase
     .from('sessoes_mesa')
@@ -15,8 +13,8 @@ export async function GET() {
         itens_pedido(id, nome_snapshot, quantidade, preco_snapshot))
     `)
     .eq('status', 'fechada')
-    .gte('fechada_em', `${hoje}T03:00:00.000Z`)
     .order('fechada_em', { ascending: false })
+    .limit(200)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
