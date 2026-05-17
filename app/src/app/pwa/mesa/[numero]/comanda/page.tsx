@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { playSoundPorStatus, vibrar, pedirPermissaoNotificacao, mostrarNotificacaoBrowser, desbloquearAudio } from '@/lib/notificationSound'
 
 type ItemPedido = {
   id: number
@@ -32,6 +34,8 @@ type Sessao = {
   pedidos: Pedido[]
 }
 
+type NotifBanner = { emoji: string; titulo: string; cor: string; bg: string; borda: string }
+
 function fmtMoeda(v: number) { return `R$ ${Number(v).toFixed(2).replace('.', ',')}` }
 function fmtTempo(iso: string) {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
@@ -41,12 +45,20 @@ function fmtTempo(iso: string) {
   return m > 0 ? `há ${h}h ${m}min` : `há ${h}h`
 }
 
-function getStatusInfo(p: Pedido): { emoji: string; label: string; cor: string; bg: string } {
-  if (p.status_validacao === 'recusado') return { emoji: '❌', label: 'Recusado', cor: '#B33A3A', bg: '#FEF2F2' }
-  if (p.status_validacao === 'pendente') return { emoji: '⏳', label: 'Aguardando confirmação', cor: '#E8870A', bg: '#FFF8F0' }
-  if (p.status_pedido === 'entregue') return { emoji: '✅', label: 'Servido', cor: '#0F6E56', bg: '#EEF8F4' }
-  if (p.status_pedido === 'em_entrega') return { emoji: '✅', label: 'Pronto', cor: '#0F6E56', bg: '#EEF8F4' }
-  return { emoji: '🍳', label: 'Em preparo', cor: '#185FA5', bg: '#EEF4FC' }
+const STATUS_MESA: Record<string, { emoji: string; label: string; cor: string; bg: string; borda: string }> = {
+  aguardando: { emoji: '⏳', label: 'Aguardando confirmação', cor: '#E8870A', bg: '#FFF8F0', borda: '#F5C070' },
+  em_preparo: { emoji: '🍳', label: 'Em preparo',             cor: '#185FA5', bg: '#EEF4FC', borda: '#B5D4F4' },
+  em_entrega: { emoji: '🛎️', label: 'Pronto! Chegando na mesa', cor: '#6B3FA0', bg: '#F5EFFC', borda: '#D4B5F4' },
+  entregue:   { emoji: '✅', label: 'Servido',                cor: '#0F6E56', bg: '#EEF8F4', borda: '#9FE1CB' },
+  recusado:   { emoji: '❌', label: 'Recusado',               cor: '#B33A3A', bg: '#FEF2F2', borda: '#F09595' },
+}
+
+function getStatusKey(p: Pedido): string {
+  if (p.status_validacao === 'recusado') return 'recusado'
+  if (p.status_validacao === 'pendente') return 'aguardando'
+  if (p.status_pedido === 'entregue')   return 'entregue'
+  if (p.status_pedido === 'em_entrega') return 'em_entrega'
+  return 'em_preparo'
 }
 
 export default function ComandaPage() {
@@ -58,11 +70,12 @@ export default function ComandaPage() {
   const [loading, setLoading] = useState(true)
   const [mesaNome, setMesaNome] = useState('')
   const [erro, setErro] = useState('')
+  const [notifBanner, setNotifBanner] = useState<NotifBanner | null>(null)
+  const [somAtivado, setSomAtivado] = useState(false)
 
-  const carregarSessao = useCallback(async (nome: string) => {
-    if (!nome) return
+  const carregarSessao = useCallback(async () => {
     try {
-      const res = await fetch(`/api/mesas/sessoes/ativa?mesa=${numero}&nome=${encodeURIComponent(nome)}`)
+      const res = await fetch(`/api/mesas/sessoes/ativa?mesa=${numero}`)
       const data = await res.json()
       setSessao(data.sessao ?? null)
     } catch {
@@ -72,27 +85,75 @@ export default function ComandaPage() {
     }
   }, [numero])
 
+  function dispararNotificacao(numeroPedido: number, statusPedido: string, statusValidacao: string) {
+    const key = statusValidacao === 'recusado' ? 'recusado'
+      : statusValidacao === 'pendente' ? 'aguardando'
+      : statusPedido === 'entregue' ? 'entregue'
+      : statusPedido === 'em_entrega' ? 'em_entrega'
+      : 'em_preparo'
+
+    // Não notifica quando ainda está aguardando (recém enviado)
+    if (key === 'aguardando') return
+
+    const info = STATUS_MESA[key]
+    playSoundPorStatus(statusPedido as 'pendente' | 'em_preparo' | 'em_entrega' | 'entregue' | 'recusado')
+    vibrar()
+    setNotifBanner(info)
+    setTimeout(() => setNotifBanner(null), 5000)
+    mostrarNotificacaoBrowser(`${info.emoji} Pedido #${numeroPedido}`, {
+      body: info.label,
+      tag: `mesa-pedido-${numeroPedido}-${key}`,
+    })
+  }
+
   useEffect(() => {
     const mesaRaw = sessionStorage.getItem('pwa_mesa')
-    if (!mesaRaw) {
-      router.replace(`/pwa/mesa/${numero}`)
-      return
-    }
+    if (!mesaRaw) { router.replace(`/pwa/mesa/${numero}`); return }
     const mesa = JSON.parse(mesaRaw)
-    if (mesa.numero !== numero) {
-      router.replace(`/pwa/mesa/${numero}`)
-      return
-    }
+    if (mesa.numero !== numero) { router.replace(`/pwa/mesa/${numero}`); return }
     setMesaNome(mesa.nome)
-    carregarSessao(mesa.nome)
+    carregarSessao()
+    pedirPermissaoNotificacao().catch(() => {})
   }, [numero, router, carregarSessao])
 
-  // Atualiza a cada 30s automaticamente
+  // Realtime — escuta UPDATE em pedidos desta mesa
   useEffect(() => {
-    if (!mesaNome) return
-    const interval = setInterval(() => carregarSessao(mesaNome), 30000)
-    return () => clearInterval(interval)
-  }, [mesaNome, carregarSessao])
+    if (!numero) return
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`pwa-mesa-comanda-${numero}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'pedidos',
+        filter: `mesa_numero=eq.${numero}`,
+      }, payload => {
+        const novo = payload.new as { id: number; status_pedido: string; status_validacao: string; motivo_recusa?: string; numero_seq: number }
+        // Atualiza o pedido específico na sessão sem recarregar tudo
+        setSessao(prev => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            pedidos: prev.pedidos.map(p =>
+              p.id === novo.id
+                ? { ...p, status_pedido: novo.status_pedido, status_validacao: novo.status_validacao, motivo_recusa: novo.motivo_recusa ?? null }
+                : p
+            ),
+          }
+        })
+        dispararNotificacao(novo.numero_seq, novo.status_pedido, novo.status_validacao)
+      })
+      .subscribe()
+
+    // Polling a cada 60s como fallback
+    const interval = setInterval(carregarSessao, 60000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      clearInterval(interval)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numero, carregarSessao])
 
   const totalGeral = sessao?.pedidos.reduce((s, p) => s + Number(p.total), 0) ?? 0
   const totalItens = sessao?.pedidos.reduce((s, p) => s + p.itens_pedido.reduce((si, i) => si + i.quantidade, 0), 0) ?? 0
@@ -107,6 +168,32 @@ export default function ComandaPage() {
 
   return (
     <div className="pwa-screen">
+
+      {/* Banner de notificação */}
+      {notifBanner && (
+        <div
+          onClick={() => setNotifBanner(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 200,
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 24,
+          }}
+        >
+          <div style={{
+            background: notifBanner.bg,
+            border: `2px solid ${notifBanner.borda}`,
+            borderRadius: 24, padding: '32px 28px', textAlign: 'center',
+            maxWidth: 320, width: '100%',
+            boxShadow: '0 20px 60px -12px rgba(0,0,0,0.35)',
+          }}>
+            <div style={{ fontSize: 56, marginBottom: 16, lineHeight: 1 }}>{notifBanner.emoji}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: notifBanner.cor, marginBottom: 8 }}>{notifBanner.label}</div>
+            <div style={{ fontSize: 12, color: notifBanner.cor, opacity: 0.7 }}>Toque para fechar</div>
+          </div>
+        </div>
+      )}
+
       {/* Navbar */}
       <div className="pwa-navbar">
         <button onClick={() => router.push('/pwa/cardapio')} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', padding: 0 }}>←</button>
@@ -115,7 +202,7 @@ export default function ComandaPage() {
           <div style={{ fontSize: 11, opacity: 0.8 }}>Minha Comanda</div>
         </div>
         <button
-          onClick={() => carregarSessao(mesaNome)}
+          onClick={carregarSessao}
           style={{ background: 'none', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', padding: 0 }}
           title="Atualizar"
         >↻</button>
@@ -135,6 +222,28 @@ export default function ComandaPage() {
           </div>
         </div>
 
+        {/* Botão ativar som */}
+        <div style={{ marginBottom: 16, textAlign: 'center' }}>
+          {!somAtivado ? (
+            <button
+              onClick={() => { desbloquearAudio(); pedirPermissaoNotificacao(); setSomAtivado(true) }}
+              style={{
+                background: 'var(--pwa-primary)', color: '#fff', border: 'none',
+                borderRadius: 20, padding: '9px 20px', fontSize: 13, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                boxShadow: '0 4px 14px -4px rgba(192,57,43,0.4)',
+              }}
+            >
+              🔔 Ativar notificações de status
+            </button>
+          ) : (
+            <p style={{ fontSize: 12, color: '#0F6E56', fontWeight: 600, margin: 0 }}>
+              🔊 Notificações ativas — avisaremos quando seu pedido mudar
+            </p>
+          )}
+        </div>
+
         {erro && <p style={{ color: 'var(--pwa-red-ink)', fontSize: 13, textAlign: 'center', marginBottom: 12 }}>{erro}</p>}
 
         {!sessao || sessao.pedidos.length === 0 ? (
@@ -143,10 +252,11 @@ export default function ComandaPage() {
             <p style={{ fontSize: 14 }}>Nenhum pedido ainda.<br />Adicione itens pelo cardápio!</p>
           </div>
         ) : (
-          sessao.pedidos.map((pedido, idx) => {
-            const status = getStatusInfo(pedido)
+          sessao.pedidos.map(pedido => {
+            const key = getStatusKey(pedido)
+            const status = STATUS_MESA[key]
             return (
-              <div key={pedido.id} style={{ background: '#fff', border: `1px solid ${status.bg === '#FEF2F2' ? '#F09595' : '#F0EDE6'}`, borderLeft: `4px solid ${status.cor}`, borderRadius: 'var(--pwa-r-md)', marginBottom: 12, overflow: 'hidden' }}>
+              <div key={pedido.id} style={{ background: '#fff', border: `1px solid ${status.borda}`, borderLeft: `4px solid ${status.cor}`, borderRadius: 'var(--pwa-r-md)', marginBottom: 12, overflow: 'hidden' }}>
                 {/* Header do pedido */}
                 <div style={{ padding: '10px 14px', background: status.bg, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -163,7 +273,8 @@ export default function ComandaPage() {
                 <div style={{ padding: '10px 14px' }}>
                   {pedido.itens_pedido.map(item => (
                     <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4, color: '#444' }}>
-                      <span><span style={{ fontWeight: 600, color: 'var(--pwa-primary)' }}>{item.quantidade}×</span> {item.nome_snapshot}
+                      <span>
+                        <span style={{ fontWeight: 600, color: 'var(--pwa-primary)' }}>{item.quantidade}×</span> {item.nome_snapshot}
                         {item.observacao_item && <span style={{ fontSize: 11, color: '#aaa', fontStyle: 'italic' }}> ({item.observacao_item})</span>}
                       </span>
                       <span style={{ color: '#888', whiteSpace: 'nowrap', marginLeft: 8 }}>{fmtMoeda(item.preco_snapshot * item.quantidade)}</span>
@@ -181,15 +292,37 @@ export default function ComandaPage() {
                   )}
                 </div>
 
-                {/* Botão acompanhar — só para pedidos em andamento */}
-                {pedido.status_validacao !== 'recusado' && pedido.status_pedido !== 'entregue' && (
-                  <div style={{ padding: '6px 14px 10px' }}>
-                    <button
-                      onClick={() => router.push(`/pwa/status/${pedido.id}`)}
-                      style={{ width: '100%', padding: '8px', background: status.bg, border: `1px solid ${status.cor}`, borderRadius: 8, color: status.cor, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}
-                    >
-                      {status.emoji} Acompanhar pedido #{pedido.numero_seq}
-                    </button>
+                {/* Barra de progresso do pedido */}
+                {pedido.status_validacao !== 'recusado' && (
+                  <div style={{ padding: '8px 14px 12px', borderTop: '1px solid #F0EDE6' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                      {(['aguardando', 'em_preparo', 'em_entrega', 'entregue'] as const).map((s, i) => {
+                        const ativo = key === s
+                        const feito = ['aguardando', 'em_preparo', 'em_entrega', 'entregue'].indexOf(key) > i
+                        return (
+                          <div key={s} style={{ display: 'flex', alignItems: 'center', flex: i < 3 ? 1 : 'none' }}>
+                            <div style={{
+                              width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                              background: feito ? STATUS_MESA[s].cor : ativo ? STATUS_MESA[s].cor : '#E0DDD5',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 11,
+                            }}>
+                              {feito ? <span style={{ color: '#fff', fontSize: 10 }}>✓</span>
+                                : ativo ? <span style={{ color: '#fff' }}>{STATUS_MESA[s].emoji}</span>
+                                : <span style={{ color: '#aaa', fontSize: 9 }}>{i + 1}</span>}
+                            </div>
+                            {i < 3 && (
+                              <div style={{ flex: 1, height: 2, background: feito ? STATUS_MESA[s].cor : '#E0DDD5', margin: '0 2px' }} />
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                      {['Enviado', 'Confirmado', 'Preparando', 'Servido'].map((l, i) => (
+                        <div key={l} style={{ fontSize: 9, color: '#aaa', textAlign: i === 0 ? 'left' : i === 3 ? 'right' : 'center', flex: i < 3 ? 1 : 'none' }}>{l}</div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -213,14 +346,17 @@ export default function ComandaPage() {
             </p>
           </div>
         )}
+
+        {/* Indicador tempo real */}
+        <p style={{ fontSize: 11, color: 'var(--pwa-muted)', textAlign: 'center', marginTop: 16 }}>
+          <span className="pwa-live-dot" style={{ display: 'inline-block', marginRight: 4, background: '#0F6E56' }} />
+          Atualizando em tempo real
+        </p>
       </div>
 
       {/* Bottom bar */}
       <div className="pwa-bottom-bar">
-        <button
-          className="pwa-btn pwa-btn-primary"
-          onClick={() => router.push('/pwa/cardapio')}
-        >
+        <button className="pwa-btn pwa-btn-primary" onClick={() => router.push('/pwa/cardapio')}>
           🛒 Pedir mais itens
         </button>
       </div>
