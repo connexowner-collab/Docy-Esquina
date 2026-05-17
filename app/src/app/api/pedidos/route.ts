@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
   const { data: pedido, error: pedidoError } = await supabase
     .from('pedidos')
     .insert({
+      origem: 'portal',
       cliente_id: isLocal ? null : cliente_id,
       nome_local: isLocal ? nome_local.trim() : null,
       tipo_entrega: tipo_entrega ?? 'entrega',
