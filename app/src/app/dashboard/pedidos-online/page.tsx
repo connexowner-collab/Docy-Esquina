@@ -79,7 +79,7 @@ async function imprimir(pedido: Pedido) {
 const COLUNAS_KANBAN = [
   { id: 'aguardando', label: 'Aguardando',  emoji: '🕐', cor: '#E8870A', bg: '#FFF8F0', borda: '#F5C070' },
   { id: 'em_preparo', label: 'Em Preparo',  emoji: '🍳', cor: '#185FA5', bg: '#EEF4FC', borda: '#B5D4F4' },
-  { id: 'em_entrega', label: 'Em Entrega',  emoji: '🛵', cor: '#6B3FA0', bg: '#F5EFFC', borda: '#D4B5F4' },
+  { id: 'em_entrega', label: 'Pronto / Em Entrega', emoji: '🛵', cor: '#6B3FA0', bg: '#F5EFFC', borda: '#D4B5F4' },
   { id: 'entregue',   label: 'Concluído',   emoji: '✅', cor: '#0F6E56', bg: '#EEF8F4', borda: '#9FE1CB' },
   { id: 'recusado',   label: 'Recusado',    emoji: '❌', cor: '#B33A3A', bg: '#FEF2F2', borda: '#F09595' },
 ] as const
@@ -118,7 +118,7 @@ export default function PedidosOnlinePage() {
         enderecos(logradouro, numero, bairro),
         itens_pedido(nome_snapshot, preco_snapshot, quantidade, observacao_item)
       `)
-      .eq('origem', 'pwa')
+      .in('origem', ['pwa', 'mesa'])
       .order('created_at', { ascending: false })
 
     if (!todos) {
@@ -178,11 +178,11 @@ export default function PedidosOnlinePage() {
     const supabase = createClient()
     const channel = supabase
       .channel('portal-pedidos-online')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pedidos', filter: 'origem=eq.pwa' }, () => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pedidos' }, () => {
         carregarPedidos(verTodos)
         dispararAlertaNovoPedido()
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pedidos', filter: 'origem=eq.pwa' }, () => carregarPedidos(verTodos))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pedidos' }, () => carregarPedidos(verTodos))
       .subscribe()
     const timer = setInterval(() => carregarPedidos(verTodos), 60000)
     return () => { supabase.removeChannel(channel); clearInterval(timer) }
