@@ -1,9 +1,20 @@
 // Utilitário compartilhado para geocodificação e cálculo de distância.
 // Usado nas APIs de cadastro de cliente/endereço para salvar distancia_km automaticamente.
+//
+// Quando GOOGLE_MAPS_API_KEY está configurada:
+//   → Geocodificação: apenas Google Geocoding API
+//   → Distância: apenas Google Distance Matrix API
+//   (sem Nominatim, sem OSRM, sem Haversine nesse caminho)
+//
+// Quando a key NÃO está configurada (fallback sem custo):
+//   → Geocodificação: Nominatim estruturado → Nominatim livre → CEP
+//   → Distância: OSRM → Haversine × 1.30
 
 const GOOGLE_KEY = process.env.GOOGLE_MAPS_API_KEY
 
-// Busca cidade/UF a partir do CEP usando ViaCEP (gratuito, sem API key)
+// ---------------------------------------------------------------------------
+// ViaCEP — obtém cidade/UF a partir do CEP (gratuito, sem API key)
+// ---------------------------------------------------------------------------
 async function cidadePorCEP(cep: string): Promise<{ cidade: string; uf: string } | null> {
   try {
     const digits = cep.replace(/\D/g, '')
@@ -17,6 +28,9 @@ async function cidadePorCEP(cep: string): Promise<{ cidade: string; uf: string }
   return null
 }
 
+// ---------------------------------------------------------------------------
+// Google Geocoding API — endereço → coordenadas
+// ---------------------------------------------------------------------------
 async function geocodificarGoogle(endereco: string): Promise<{ lat: number; lng: number } | null> {
   if (!GOOGLE_KEY) return null
   try {
@@ -25,23 +39,44 @@ async function geocodificarGoogle(endereco: string): Promise<{ lat: number; lng:
     const data = await res.json()
     if (data.status === 'OK' && data.results?.[0]) {
       const { lat, lng } = data.results[0].geometry.location
+      console.log(`[distancia] Google Geocoding OK: "${endereco}" → lat=${lat}, lng=${lng}`)
       return { lat, lng }
     }
-  } catch {}
+    console.warn(`[distancia] Google Geocoding falhou: status=${data.status}, erro=${data.error_message ?? ''}`)
+  } catch (e) {
+    console.warn(`[distancia] Google Geocoding exception: ${e}`)
+  }
   return null
 }
 
-async function geocodificarNominatim(endereco: string): Promise<{ lat: number; lng: number } | null> {
+// ---------------------------------------------------------------------------
+// Google Distance Matrix API — distância de rota entre dois pontos
+// ---------------------------------------------------------------------------
+async function distanciaGoogleMatrix(
+  lat1: number, lng1: number,
+  lat2: number, lng2: number,
+): Promise<number | null> {
+  if (!GOOGLE_KEY) return null
   try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endereco)}&format=json&limit=1&countrycodes=br`
-    const res = await fetch(url, { headers: { 'User-Agent': 'DocyEsquina/1.0' }, signal: AbortSignal.timeout(6000) })
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${lat1},${lng1}&destinations=${lat2},${lng2}&mode=driving&language=pt-BR&key=${GOOGLE_KEY}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
     const data = await res.json()
-    if (data?.[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
-  } catch {}
+    const element = data.rows?.[0]?.elements?.[0]
+    if (element?.status === 'OK' && element.distance?.value) {
+      const km = Math.round((element.distance.value / 1000) * 100) / 100
+      console.log(`[distancia] Google Distance Matrix OK: ${km} km (${element.duration?.text ?? ''})`)
+      return km
+    }
+    console.warn(`[distancia] Google Distance Matrix falhou: status=${element?.status}, rows=${JSON.stringify(data.rows)}`)
+  } catch (e) {
+    console.warn(`[distancia] Google Distance Matrix exception: ${e}`)
+  }
   return null
 }
 
-// Nominatim com parâmetros estruturados (mais preciso que busca livre)
+// ---------------------------------------------------------------------------
+// Nominatim — geocodificação estruturada (sem key, fallback)
+// ---------------------------------------------------------------------------
 async function geocodificarNominatimEstruturado(params: {
   logradouro: string
   numero?: string
@@ -57,25 +92,54 @@ async function geocodificarNominatimEstruturado(params: {
     const url = `https://nominatim.openstreetmap.org/search?${p.toString()}`
     const res = await fetch(url, { headers: { 'User-Agent': 'DocyEsquina/1.0' }, signal: AbortSignal.timeout(6000) })
     const data = await res.json()
-    if (data?.[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
-  } catch {}
-  return null
-}
-
-async function distanciaGoogle(lat1: number, lng1: number, lat2: number, lng2: number): Promise<number | null> {
-  if (!GOOGLE_KEY) return null
-  try {
-    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${lat1},${lng1}&destinations=${lat2},${lng2}&mode=driving&language=pt-BR&key=${GOOGLE_KEY}`
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
-    const data = await res.json()
-    const element = data.rows?.[0]?.elements?.[0]
-    if (element?.status === 'OK' && element.distance?.value) {
-      return element.distance.value / 1000
+    if (data?.[0]) {
+      const lat = parseFloat(data[0].lat)
+      const lng = parseFloat(data[0].lon)
+      console.log(`[distancia] Nominatim estruturado OK: lat=${lat}, lng=${lng}`)
+      return { lat, lng }
     }
   } catch {}
   return null
 }
 
+// ---------------------------------------------------------------------------
+// Nominatim — geocodificação livre (fallback)
+// ---------------------------------------------------------------------------
+async function geocodificarNominatimLivre(endereco: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endereco)}&format=json&limit=1&countrycodes=br`
+    const res = await fetch(url, { headers: { 'User-Agent': 'DocyEsquina/1.0' }, signal: AbortSignal.timeout(6000) })
+    const data = await res.json()
+    if (data?.[0]) {
+      const lat = parseFloat(data[0].lat)
+      const lng = parseFloat(data[0].lon)
+      console.log(`[distancia] Nominatim livre OK: lat=${lat}, lng=${lng}`)
+      return { lat, lng }
+    }
+  } catch {}
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// OSRM — distância de rota (fallback sem custo)
+// ---------------------------------------------------------------------------
+async function osrmKm(lat1: number, lng1: number, lat2: number, lng2: number): Promise<number | null> {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${lng1},${lat1};${lng2},${lat2}?overview=false`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const data = await res.json()
+    if (data?.routes?.[0]?.distance) {
+      const km = Math.round((data.routes[0].distance / 1000) * 100) / 100
+      console.log(`[distancia] OSRM OK: ${km} km`)
+      return km
+    }
+  } catch {}
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// Haversine — linha reta com margem (último recurso)
+// ---------------------------------------------------------------------------
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371
   const dLat = (lat2 - lat1) * Math.PI / 180
@@ -85,48 +149,29 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-async function osrmKm(lat1: number, lng1: number, lat2: number, lng2: number): Promise<number | null> {
-  try {
-    const url = `https://router.project-osrm.org/route/v1/driving/${lng1},${lat1};${lng2},${lat2}?overview=false`
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
-    const data = await res.json()
-    if (data?.routes?.[0]?.distance) return data.routes[0].distance / 1000
-  } catch {}
-  return null
-}
-
-// Geocodifica endereço: Google → Nominatim
-async function geocodificar(endereco: string): Promise<{ lat: number; lng: number } | null> {
-  return (await geocodificarGoogle(endereco)) ?? (await geocodificarNominatim(endereco))
-}
-
-// Calcula distância de rota: Google → OSRM → Haversine+30%
-async function calcularKm(lat1: number, lng1: number, lat2: number, lng2: number): Promise<{ km: number; fonte: string }> {
-  const google = await distanciaGoogle(lat1, lng1, lat2, lng2)
-  if (google !== null) return { km: Math.round(google * 100) / 100, fonte: 'google' }
-
-  const osrm = await osrmKm(lat1, lng1, lat2, lng2)
-  if (osrm !== null) return { km: Math.round(osrm * 100) / 100, fonte: 'osrm' }
-
-  // Haversine com 30% de margem (cobertura de curvas de estrada em SP)
-  return { km: Math.round(haversineKm(lat1, lng1, lat2, lng2) * 1.30 * 100) / 100, fonte: 'haversine' }
-}
-
+// ---------------------------------------------------------------------------
+// Tipos públicos
+// ---------------------------------------------------------------------------
 export type ResultadoDistancia = {
   km: number
-  fonte: string         // 'google' | 'osrm' | 'haversine'
+  fonte: string         // 'google-matrix' | 'osrm' | 'haversine'
   fonteGeo: string      // 'google' | 'nominatim-estruturado' | 'nominatim-livre' | 'cep'
   latDest: number
   lngDest: number
 }
 
+// ---------------------------------------------------------------------------
+// Função principal
+// ---------------------------------------------------------------------------
 /**
- * Dado um endereço de destino (logradouro, bairro, CEP, cidade)
- * e as coordenadas de origem da loja, retorna a distância em km + metadados.
- * Retorna null se não for possível geocodificar o destino.
+ * Dado um endereço de destino e as coordenadas de origem da loja,
+ * retorna a distância em km + metadados de rastreabilidade.
  *
- * IMPORTANTE: nunca passe a cidade da loja como `cidade` — ela deve ser a
- * cidade do cliente, obtida pelo próprio CEP via ViaCEP quando não informada.
+ * Com GOOGLE_MAPS_API_KEY configurada:
+ *   → usa Google Geocoding + Google Distance Matrix (mais preciso)
+ *
+ * Sem key:
+ *   → Nominatim (geocodificação) + OSRM/Haversine (rota)
  */
 export async function calcularDistanciaParaLoja(params: {
   logradouro?: string
@@ -141,7 +186,7 @@ export async function calcularDistanciaParaLoja(params: {
   const { logradouro, numero, bairro, cep, latOrigem, lngOrigem } = params
   let { cidade, uf } = params
 
-  // 1. Se cidade não foi informada mas há CEP, busca cidade real via ViaCEP
+  // 1. Resolver cidade/UF via ViaCEP quando não informado
   if (!cidade && cep) {
     const cepData = await cidadePorCEP(cep)
     if (cepData) {
@@ -153,45 +198,79 @@ export async function calcularDistanciaParaLoja(params: {
     }
   }
 
+  // Montar string de endereço completo para APIs de texto livre
+  const partesEndereco = [
+    logradouro && numero ? `${logradouro}, ${numero}` : logradouro,
+    bairro,
+    cidade,
+    uf,
+    'Brasil',
+  ].filter(Boolean)
+  const enderecoCompleto = partesEndereco.join(', ')
+
+  // =========================================================================
+  // CAMINHO A: Google completo (Geocoding + Distance Matrix)
+  // =========================================================================
+  if (GOOGLE_KEY) {
+    console.log(`[distancia] Usando Google APIs para: "${enderecoCompleto}"`)
+
+    const geo = await geocodificarGoogle(enderecoCompleto)
+    if (!geo) {
+      console.warn('[distancia] Google Geocoding não retornou coords — abortando (verifique a API key e Geocoding API)')
+      return null
+    }
+
+    const km = await distanciaGoogleMatrix(latOrigem, lngOrigem, geo.lat, geo.lng)
+    if (km === null) {
+      console.warn('[distancia] Google Distance Matrix falhou — verifique se a Distance Matrix API está habilitada no Google Cloud Console')
+      return null
+    }
+
+    return { km, fonte: 'google-matrix', fonteGeo: 'google', latDest: geo.lat, lngDest: geo.lng }
+  }
+
+  // =========================================================================
+  // CAMINHO B: Fallback sem Google (Nominatim + OSRM/Haversine)
+  // =========================================================================
+  console.warn('[distancia] GOOGLE_MAPS_API_KEY não configurada — usando fallback Nominatim/OSRM')
+
   let geo: { lat: number; lng: number } | null = null
   let fonteGeo = 'desconhecido'
 
-  // 2a. Nominatim estruturado (mais preciso) — tenta primeiro quando temos cidade
-  if (!geo && logradouro && cidade) {
+  // 2a. Nominatim estruturado (mais preciso quando temos cidade)
+  if (logradouro && cidade) {
     geo = await geocodificarNominatimEstruturado({ logradouro, numero, cidade, uf })
     if (geo) fonteGeo = 'nominatim-estruturado'
   }
 
-  // 2b. Google / Nominatim livre com endereço completo
-  if (!geo) {
-    const partes = [
-      logradouro && numero ? `${logradouro}, ${numero}` : logradouro,
-      bairro, cidade, uf, 'Brasil',
-    ].filter(Boolean)
-    if (partes.length > 1) {
-      const endStr = partes.join(', ')
-      console.log(`[distancia] Geocodificando: "${endStr}"`)
-      geo = await geocodificar(endStr)
-      if (geo) fonteGeo = GOOGLE_KEY ? 'google' : 'nominatim-livre'
-    }
+  // 2b. Nominatim livre
+  if (!geo && partesEndereco.length > 1) {
+    geo = await geocodificarNominatimLivre(enderecoCompleto)
+    if (geo) fonteGeo = 'nominatim-livre'
   }
 
-  // 2c. Fallback: CEP
+  // 2c. Fallback por CEP
   if (!geo && cep) {
     const digits = cep.replace(/\D/g, '')
-    geo = await geocodificar(`${digits}, Brasil`)
+    geo = await geocodificarNominatimLivre(`${digits}, Brasil`)
     if (geo) fonteGeo = 'cep'
   }
 
   if (!geo) {
-    console.warn('[distancia] Não foi possível geocodificar o destino')
+    console.warn('[distancia] Não foi possível geocodificar o destino (sem Google key)')
     return null
   }
 
   console.log(`[distancia] Coords destino (${fonteGeo}): lat=${geo.lat}, lng=${geo.lng}`)
 
-  const { km, fonte } = await calcularKm(latOrigem, lngOrigem, geo.lat, geo.lng)
-  console.log(`[distancia] Resultado: ${km} km via ${fonte}`)
+  // 3. Distância via OSRM
+  const osrm = await osrmKm(latOrigem, lngOrigem, geo.lat, geo.lng)
+  if (osrm !== null) {
+    return { km: osrm, fonte: 'osrm', fonteGeo, latDest: geo.lat, lngDest: geo.lng }
+  }
 
-  return { km, fonte, fonteGeo, latDest: geo.lat, lngDest: geo.lng }
+  // 4. Haversine × 1.30 (último recurso)
+  const hav = Math.round(haversineKm(latOrigem, lngOrigem, geo.lat, geo.lng) * 1.30 * 100) / 100
+  console.warn(`[distancia] Usando Haversine como último recurso: ${hav} km`)
+  return { km: hav, fonte: 'haversine', fonteGeo, latDest: geo.lat, lngDest: geo.lng }
 }
