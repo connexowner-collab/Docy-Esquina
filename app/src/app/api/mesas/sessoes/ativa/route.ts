@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // GET /api/mesas/sessoes/ativa?mesa=X
 // Retorna qualquer sessão aberta para a mesa (independente do nome)
@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ sessao: null })
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { data: sessao } = await supabase
     .from('sessoes_mesa')

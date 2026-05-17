@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(req: NextRequest) {
   const clienteId = req.nextUrl.searchParams.get('clienteId')
@@ -39,7 +40,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Endereço obrigatório para entrega' }, { status: 400 })
   }
 
-  const supabase = await createClient()
+  // Admin client bypassa RLS — seguro pois esta rota roda apenas no servidor
+  const supabase = createAdminClient()
 
   const { data: cfg } = await supabase.from('configuracoes').select('pwa_ativo').single()
   if (cfg && cfg.pwa_ativo === false) {
