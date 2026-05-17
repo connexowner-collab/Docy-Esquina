@@ -116,20 +116,39 @@ export default function ComandaPage() {
     pedirPermissaoNotificacao().catch(() => {})
   }, [numero, router, carregarSessao])
 
-  // Realtime — escuta UPDATE em pedidos desta mesa
+  // Desbloqueia áudio na primeira interação do usuário com a página (iOS/Android)
+  useEffect(() => {
+    const unlock = () => {
+      desbloquearAudio()
+      window.removeEventListener('click', unlock)
+      window.removeEventListener('touchstart', unlock)
+    }
+    window.addEventListener('click', unlock)
+    window.addEventListener('touchstart', unlock)
+    return () => {
+      window.removeEventListener('click', unlock)
+      window.removeEventListener('touchstart', unlock)
+    }
+  }, [])
+
+  // Realtime — escuta UPDATE em pedidos
+  // IMPORTANTE: sem REPLICA IDENTITY FULL na tabela, filtros server-side em UPDATE não funcionam.
+  // Por isso assinamos SEM filtro e filtramos client-side pelo mesa_numero.
   useEffect(() => {
     if (!numero) return
     const supabase = createClient()
     const channel = supabase
       .channel(`pwa-mesa-comanda-${numero}`)
+      // UPDATE: sem filtro server-side → filtra client-side
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'pedidos',
-        filter: `mesa_numero=eq.${numero}`,
       }, payload => {
-        const novo = payload.new as { id: number; status_pedido: string; status_validacao: string; motivo_recusa?: string; numero_seq: number }
-        // Atualiza o pedido específico na sessão sem recarregar tudo
+        const novo = payload.new as { id: number; status_pedido: string; status_validacao: string; motivo_recusa?: string; numero_seq: number; mesa_numero?: number }
+        // Ignora pedidos de outras mesas
+        if (novo.mesa_numero !== numero) return
+        // Atualiza só o pedido que mudou, sem recarregar tudo
         setSessao(prev => {
           if (!prev) return prev
           return {
@@ -143,10 +162,20 @@ export default function ComandaPage() {
         })
         dispararNotificacao(novo.numero_seq, novo.status_pedido, novo.status_validacao)
       })
+      // INSERT: filtro server-side funciona sem REPLICA IDENTITY FULL
+      // Recarrega a sessão quando outro dispositivo na mesma mesa faz um pedido
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'pedidos',
+        filter: `mesa_numero=eq.${numero}`,
+      }, () => {
+        carregarSessao()
+      })
       .subscribe()
 
-    // Polling a cada 60s como fallback
-    const interval = setInterval(carregarSessao, 60000)
+    // Polling a cada 30s como fallback caso o realtime falhe
+    const interval = setInterval(carregarSessao, 30000)
 
     return () => {
       supabase.removeChannel(channel)

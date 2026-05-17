@@ -146,6 +146,7 @@ function buildComandaHTML(pedido: DadosPedido): string {
   const logoUrl = typeof window !== 'undefined' ? `${window.location.origin}/LOGO.png` : '/LOGO.png'
 
   return `<!DOCTYPE html><html><head>
+    <meta charset="utf-8">
     <style>
       @media print { body { margin: 0; } @page { margin: 3mm; size: 80mm auto; } }
       body { font-family: 'Courier New', monospace; font-size: 15px; font-weight: bold; line-height: 1.4; padding: 4px; width: 74mm; box-sizing: border-box; }
@@ -191,6 +192,7 @@ function buildResumoHTML(dados: DadosResumo): string {
   const logoUrl = typeof window !== 'undefined' ? `${window.location.origin}/LOGO.png` : '/LOGO.png'
 
   return `<!DOCTYPE html><html><head>
+    <meta charset="utf-8">
     <style>
       @media print { body { margin: 0; } @page { margin: 3mm; size: 80mm auto; } }
       body { font-family: 'Courier New', monospace; font-size: 15px; font-weight: bold; line-height: 1.4; padding: 4px; width: 74mm; box-sizing: border-box; }
