@@ -91,7 +91,7 @@ export default function Sidebar({ nomeEstabelecimento }: { nomeEstabelecimento: 
       const { count } = await supabase
         .from('pedidos')
         .select('id', { count: 'exact', head: true })
-        .eq('origem', 'pwa')
+        .in('origem', ['pwa', 'mesa'])
         .eq('status_validacao', 'pendente')
         .gte('created_at', `${hoje}T00:00:00`)
       setPedidosPendentes(count ?? 0)
@@ -101,7 +101,7 @@ export default function Sidebar({ nomeEstabelecimento }: { nomeEstabelecimento: 
 
     const channel = supabase
       .channel('sidebar-pedidos-badge')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: 'origem=eq.pwa' }, fetchCount)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, fetchCount)
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
