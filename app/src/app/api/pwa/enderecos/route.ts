@@ -23,19 +23,17 @@ export async function POST(req: NextRequest) {
   const lngOrigem = config?.lng_origem ? Number(config.lng_origem) : null
 
   // Calcula distância automaticamente.
-  // A cidade do cliente é obtida via ViaCEP a partir do CEP informado,
-  // garantindo que o geocode aponte para a cidade correta do cliente.
+  // A cidade do cliente é obtida via ViaCEP a partir do CEP informado.
   let distancia_km: number | null = null
+  let fonte_distancia: string | null = null
   if (latOrigem && lngOrigem) {
-    distancia_km = await calcularDistanciaParaLoja({
-      logradouro,
-      numero,
-      bairro,
-      cep,
-      // cidade e uf são resolvidos internamente via ViaCEP quando cep está presente
-      latOrigem,
-      lngOrigem,
+    const resultado = await calcularDistanciaParaLoja({
+      logradouro, numero, bairro, cep, latOrigem, lngOrigem,
     })
+    if (resultado) {
+      distancia_km = resultado.km
+      fonte_distancia = `${resultado.fonte}/${resultado.fonteGeo}`
+    }
   }
 
   const { data, error } = await supabase
@@ -71,5 +69,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ...data, taxa }, { status: 201 })
+  return NextResponse.json({ ...data, taxa, fonte_distancia }, { status: 201 })
 }

@@ -70,23 +70,27 @@ export async function POST(req: NextRequest) {
   }
 
   let enderecoId: number | null = null
-  let mapped: Array<{ cliente_id: number; logradouro: string; numero: string; complemento: string | null; bairro: string; referencia: string | null; cep: string | null; distancia_km: number | null }> = []
+  let mapped: Array<{ cliente_id: number; logradouro: string; numero: string; complemento: string | null; bairro: string; referencia: string | null; cep: string | null; distancia_km: number | null; _fonte: string | null }> = []
 
   if (enderecos && Array.isArray(enderecos) && enderecos.length > 0) {
     mapped = await Promise.all(
       enderecos.map(async (e: Record<string, string>) => {
         let distancia_km: number | null = null
 
+        let fonte_distancia: string | null = null
         if (latOrigem && lngOrigem) {
-          distancia_km = await calcularDistanciaParaLoja({
+          const resultado = await calcularDistanciaParaLoja({
             logradouro: e.logradouro,
             numero: e.numero ?? 'S/N',
             bairro: e.bairro,
             cep: e.cep,
-            // cidade/uf são resolvidos internamente via ViaCEP a partir do CEP do cliente
             latOrigem,
             lngOrigem,
           })
+          if (resultado) {
+            distancia_km = resultado.km
+            fonte_distancia = `${resultado.fonte}/${resultado.fonteGeo}`
+          }
         }
 
         return {
@@ -98,13 +102,16 @@ export async function POST(req: NextRequest) {
           referencia: e.referencia || null,
           cep: e.cep || null,
           distancia_km,
+          _fonte: fonte_distancia, // só para log, não vai para o banco
         }
       })
     )
 
+    // Remove campo auxiliar _fonte antes de inserir no banco
+    const mappedParaBanco = mapped.map(({ _fonte: _, ...rest }) => rest)
     const { data: endData } = await supabase
       .from('enderecos')
-      .insert(mapped)
+      .insert(mappedParaBanco)
       .select('id')
 
     enderecoId = endData?.[0]?.id ?? null
@@ -127,5 +134,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ clienteId: cliente.id, enderecoId, distancia_km: distanciaKm, taxa }, { status: 201 })
+  const fonteDistancia = mapped?.[0]?._fonte ?? null
+  return NextResponse.json({ clienteId: cliente.id, enderecoId, distancia_km: distanciaKm, taxa, fonte_distancia: fonteDistancia }, { status: 201 })
 }

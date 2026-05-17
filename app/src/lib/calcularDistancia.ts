@@ -41,6 +41,27 @@ async function geocodificarNominatim(endereco: string): Promise<{ lat: number; l
   return null
 }
 
+// Nominatim com parâmetros estruturados (mais preciso que busca livre)
+async function geocodificarNominatimEstruturado(params: {
+  logradouro: string
+  numero?: string
+  cidade?: string
+  uf?: string
+}): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const p = new URLSearchParams({ format: 'json', limit: '1', countrycodes: 'br' })
+    const street = params.numero ? `${params.numero} ${params.logradouro}` : params.logradouro
+    p.set('street', street)
+    if (params.cidade) p.set('city', params.cidade)
+    if (params.uf) p.set('state', params.uf)
+    const url = `https://nominatim.openstreetmap.org/search?${p.toString()}`
+    const res = await fetch(url, { headers: { 'User-Agent': 'DocyEsquina/1.0' }, signal: AbortSignal.timeout(6000) })
+    const data = await res.json()
+    if (data?.[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+  } catch {}
+  return null
+}
+
 async function distanciaGoogle(lat1: number, lng1: number, lat2: number, lng2: number): Promise<number | null> {
   if (!GOOGLE_KEY) return null
   try {
@@ -79,65 +100,98 @@ async function geocodificar(endereco: string): Promise<{ lat: number; lng: numbe
   return (await geocodificarGoogle(endereco)) ?? (await geocodificarNominatim(endereco))
 }
 
-// Calcula distância de rota: Google → OSRM → Haversine+15%
-async function calcularKm(lat1: number, lng1: number, lat2: number, lng2: number): Promise<number> {
+// Calcula distância de rota: Google → OSRM → Haversine+30%
+async function calcularKm(lat1: number, lng1: number, lat2: number, lng2: number): Promise<{ km: number; fonte: string }> {
   const google = await distanciaGoogle(lat1, lng1, lat2, lng2)
-  if (google !== null) return Math.round(google * 100) / 100
+  if (google !== null) return { km: Math.round(google * 100) / 100, fonte: 'google' }
 
   const osrm = await osrmKm(lat1, lng1, lat2, lng2)
-  if (osrm !== null) return Math.round(osrm * 100) / 100
+  if (osrm !== null) return { km: Math.round(osrm * 100) / 100, fonte: 'osrm' }
 
-  return Math.round(haversineKm(lat1, lng1, lat2, lng2) * 1.15 * 100) / 100
+  // Haversine com 30% de margem (cobertura de curvas de estrada em SP)
+  return { km: Math.round(haversineKm(lat1, lng1, lat2, lng2) * 1.30 * 100) / 100, fonte: 'haversine' }
+}
+
+export type ResultadoDistancia = {
+  km: number
+  fonte: string         // 'google' | 'osrm' | 'haversine'
+  fonteGeo: string      // 'google' | 'nominatim-estruturado' | 'nominatim-livre' | 'cep'
+  latDest: number
+  lngDest: number
 }
 
 /**
  * Dado um endereço de destino (logradouro, bairro, CEP, cidade)
- * e as coordenadas de origem da loja, retorna a distância em km.
+ * e as coordenadas de origem da loja, retorna a distância em km + metadados.
  * Retorna null se não for possível geocodificar o destino.
+ *
+ * IMPORTANTE: nunca passe a cidade da loja como `cidade` — ela deve ser a
+ * cidade do cliente, obtida pelo próprio CEP via ViaCEP quando não informada.
  */
 export async function calcularDistanciaParaLoja(params: {
   logradouro?: string
   numero?: string
   bairro?: string
   cep?: string
-  cidade?: string  // cidade do CLIENTE — nunca passe a cidade da loja aqui
+  cidade?: string
   uf?: string
   latOrigem: number
   lngOrigem: number
-}): Promise<number | null> {
+}): Promise<ResultadoDistancia | null> {
   const { logradouro, numero, bairro, cep, latOrigem, lngOrigem } = params
   let { cidade, uf } = params
 
-  // Se cidade não foi informada mas há CEP, busca cidade real via ViaCEP
-  // Isso evita o bug de passar a cidade da loja como cidade do cliente
+  // 1. Se cidade não foi informada mas há CEP, busca cidade real via ViaCEP
   if (!cidade && cep) {
     const cepData = await cidadePorCEP(cep)
-    if (cepData) { cidade = cepData.cidade; uf = cepData.uf }
+    if (cepData) {
+      cidade = cepData.cidade
+      uf = cepData.uf
+      console.log(`[distancia] ViaCEP: CEP ${cep} → ${cidade}, ${uf}`)
+    } else {
+      console.warn(`[distancia] ViaCEP falhou para CEP ${cep}`)
+    }
   }
-
-  // Monta string de endereço completo do CLIENTE
-  const partes = [
-    logradouro && numero ? `${logradouro}, ${numero}` : logradouro,
-    bairro,
-    cidade,
-    uf,
-    'Brasil',
-  ].filter(Boolean)
 
   let geo: { lat: number; lng: number } | null = null
+  let fonteGeo = 'desconhecido'
 
-  // 1. Tenta com endereço completo (rua + bairro + cidade via ViaCEP)
-  if (partes.length > 1) {
-    geo = await geocodificar(partes.join(', '))
+  // 2a. Nominatim estruturado (mais preciso) — tenta primeiro quando temos cidade
+  if (!geo && logradouro && cidade) {
+    geo = await geocodificarNominatimEstruturado({ logradouro, numero, cidade, uf })
+    if (geo) fonteGeo = 'nominatim-estruturado'
   }
 
-  // 2. Fallback: geocodifica só pelo CEP (posição aproximada do logradouro)
+  // 2b. Google / Nominatim livre com endereço completo
+  if (!geo) {
+    const partes = [
+      logradouro && numero ? `${logradouro}, ${numero}` : logradouro,
+      bairro, cidade, uf, 'Brasil',
+    ].filter(Boolean)
+    if (partes.length > 1) {
+      const endStr = partes.join(', ')
+      console.log(`[distancia] Geocodificando: "${endStr}"`)
+      geo = await geocodificar(endStr)
+      if (geo) fonteGeo = GOOGLE_KEY ? 'google' : 'nominatim-livre'
+    }
+  }
+
+  // 2c. Fallback: CEP
   if (!geo && cep) {
     const digits = cep.replace(/\D/g, '')
     geo = await geocodificar(`${digits}, Brasil`)
+    if (geo) fonteGeo = 'cep'
   }
 
-  if (!geo) return null
+  if (!geo) {
+    console.warn('[distancia] Não foi possível geocodificar o destino')
+    return null
+  }
 
-  return calcularKm(latOrigem, lngOrigem, geo.lat, geo.lng)
+  console.log(`[distancia] Coords destino (${fonteGeo}): lat=${geo.lat}, lng=${geo.lng}`)
+
+  const { km, fonte } = await calcularKm(latOrigem, lngOrigem, geo.lat, geo.lng)
+  console.log(`[distancia] Resultado: ${km} km via ${fonte}`)
+
+  return { km, fonte, fonteGeo, latDest: geo.lat, lngDest: geo.lng }
 }
