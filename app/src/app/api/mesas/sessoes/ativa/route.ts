@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient()
 
-  const { data: sessao } = await supabase
+  const { data: sessao, error } = await supabase
     .from('sessoes_mesa')
     .select(`
       id, mesa_numero, nome_cliente, status, aberta_em,
@@ -27,6 +27,8 @@ export async function GET(req: NextRequest) {
     .order('aberta_em', { ascending: false })
     .limit(1)
     .maybeSingle()
+
+  if (error) console.error('[sessoes/ativa] Erro:', error.message)
 
   return NextResponse.json({ sessao: sessao ?? null })
 }

@@ -48,14 +48,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Restaurante fechado no momento.' }, { status: 503 })
   }
 
-  // Sessão de mesa: encontra sessão aberta ou cria nova
+  // Sessão de mesa: encontra sessão aberta pelo número da mesa (ignora nome)
+  // Assim qualquer pessoa que sentar na mesa continua na mesma comanda aberta
   let sessaoMesaId: number | null = null
   if (isMesa) {
     const { data: sessaoExistente } = await supabase
       .from('sessoes_mesa')
       .select('id')
       .eq('mesa_numero', Number(mesa))
-      .ilike('nome_cliente', nome)
       .eq('status', 'aberta')
       .order('aberta_em', { ascending: false })
       .limit(1)
@@ -64,11 +64,12 @@ export async function POST(req: NextRequest) {
     if (sessaoExistente) {
       sessaoMesaId = sessaoExistente.id
     } else {
-      const { data: novaSessao } = await supabase
+      const { data: novaSessao, error: sessaoError } = await supabase
         .from('sessoes_mesa')
         .insert({ mesa_numero: Number(mesa), nome_cliente: nome, status: 'aberta' })
         .select('id')
         .single()
+      if (sessaoError) console.error('[sessoes_mesa] Erro ao criar sessão:', sessaoError.message)
       if (novaSessao) sessaoMesaId = novaSessao.id
     }
   }
