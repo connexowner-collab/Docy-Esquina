@@ -203,18 +203,36 @@ export default function MesasPage() {
                   ))}
                 </div>
 
-                {/* Resumo e botão fechar */}
+                {/* Resumo e botões */}
                 <div style={{ padding: '12px 16px', background: '#F7F7F5', borderTop: '1px solid #E0DDD5' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
                     <span style={{ fontSize: 12, color: '#888' }}>{sessao.pedidos.length} pedido{sessao.pedidos.length !== 1 ? 's' : ''} · {totalItens} item{totalItens !== 1 ? 'ns' : ''}</span>
                     <span style={{ fontSize: 14, fontWeight: 800, color: '#0F6E56' }}>{fmtMoeda(totalSessao)}</span>
                   </div>
-                  <button
-                    onClick={() => { setModalFechamento(sessao); setPagamentoFechamento('pix') }}
-                    style={{ width: '100%', padding: '10px', background: '#C0392B', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
-                  >
-                    💳 Fechar Mesa — {fmtMoeda(totalSessao)}
-                  </button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={async () => {
+                        const { imprimirComandaMesa } = await import('@/lib/print/printService')
+                        imprimirComandaMesa({
+                          mesa_numero: sessao.mesa_numero,
+                          nome_cliente: sessao.nome_cliente,
+                          aberta_em: sessao.aberta_em,
+                          pedidos: sessao.pedidos,
+                        })
+                      }}
+                      title="Imprimir comanda da mesa"
+                      style={{ padding: '10px 14px', background: '#fff', color: '#555', border: '1.5px solid #E0DDD5', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                      Imprimir
+                    </button>
+                    <button
+                      onClick={() => { setModalFechamento(sessao); setPagamentoFechamento('pix') }}
+                      style={{ flex: 1, padding: '10px', background: '#C0392B', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      💳 Fechar Mesa — {fmtMoeda(totalSessao)}
+                    </button>
+                  </div>
                 </div>
               </div>
             )

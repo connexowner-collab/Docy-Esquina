@@ -223,3 +223,106 @@ export function imprimirResumo(dados: DadosResumo): void {
   janela.focus()
   setTimeout(() => { janela.print(); janela.close() }, 400)
 }
+
+// ─── Comanda consolidada de mesa ─────────────────────────────────────────────
+
+export type ItemMesa = {
+  id: number
+  nome_snapshot: string
+  quantidade: number
+  preco_snapshot: number
+  observacao_item?: string | null
+}
+
+export type PedidoMesa = {
+  id: number
+  numero_seq: number
+  total: number
+  status_pedido: string
+  created_at: string
+  observacoes?: string | null
+  itens_pedido: ItemMesa[]
+}
+
+export type DadosComandaMesa = {
+  mesa_numero: number
+  nome_cliente: string
+  aberta_em: string
+  pedidos: PedidoMesa[]
+  nomeEstabelecimento?: string
+}
+
+function buildComandaMesaHTML(dados: DadosComandaMesa): string {
+  const SEP1 = '='.repeat(W)
+  const SEP2 = '-'.repeat(W)
+  const nome = (dados.nomeEstabelecimento ?? 'DOCY ESQUINA').toUpperCase()
+  const totalGeral = dados.pedidos.reduce((s, p) => s + Number(p.total), 0)
+
+  const linhas: string[] = [
+    centralizar(nome),
+    SEP1,
+    centralizar(`COMANDA — MESA ${dados.mesa_numero}`),
+    `CLIENTE: ${dados.nome_cliente}`,
+    `ABERTURA: ${fmtData(dados.aberta_em)}`,
+    `IMPRESSAO: ${fmtData(new Date().toISOString())}`,
+    SEP1,
+  ]
+
+  // Lista cada pedido com seus itens
+  for (const pedido of dados.pedidos) {
+    if (pedido.itens_pedido.length === 0) continue
+    linhas.push(`PEDIDO #${String(pedido.numero_seq).padStart(4, '0')}`)
+    linhas.push(SEP2)
+    linhas.push(pad('QTD', QTD_W) + pad('ITEM', ITEM_W) + pad('TOTAL', TOTAL_W, true))
+    linhas.push(SEP2)
+    for (const item of pedido.itens_pedido) {
+      const subtotal = Number(item.preco_snapshot) * item.quantidade
+      linhas.push(...wrapItem(item.nome_snapshot, String(item.quantidade) + 'x', fmtMoeda(subtotal)))
+      if (item.observacao_item) {
+        linhas.push(...wrapLine(`${' '.repeat(QTD_W)}> ${item.observacao_item}`, `${' '.repeat(QTD_W)}  `))
+      }
+    }
+    if (pedido.observacoes) {
+      linhas.push(...wrapLine(`OBS: ${pedido.observacoes}`, '     '))
+    }
+    linhas.push(linha('Subtotal pedido:', fmtMoeda(Number(pedido.total))))
+    linhas.push('')
+  }
+
+  linhas.push(SEP1)
+  linhas.push(linha('TOTAL GERAL:', fmtMoeda(totalGeral)))
+  linhas.push(SEP1)
+  linhas.push(centralizar('Pagamento c/ o atendente'))
+  linhas.push(centralizar(dados.nomeEstabelecimento ?? 'Docy Esquina'))
+  linhas.push('')
+  linhas.push('')
+  linhas.push('')
+
+  const conteudo = linhas
+    .map(l => `<div>${l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`)
+    .join('\n')
+
+  const logoUrl = typeof window !== 'undefined' ? `${window.location.origin}/LOGO.png` : '/LOGO.png'
+
+  return `<!DOCTYPE html><html><head>
+    <meta charset="utf-8">
+    <style>
+      @media print { body { margin: 0; } @page { margin: 3mm; size: 80mm auto; } }
+      body { font-family: 'Courier New', monospace; font-size: 15px; font-weight: bold; line-height: 1.4; padding: 4px; width: 74mm; box-sizing: border-box; }
+      div { white-space: pre; font-weight: bold; }
+      .logo-wrap { text-align: center; margin-bottom: 6px; }
+      .logo-wrap img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+    </style></head><body>
+    <div class="logo-wrap"><img src="${logoUrl}" alt="Logo" /></div>
+    ${conteudo}</body></html>`
+}
+
+export function imprimirComandaMesa(dados: DadosComandaMesa): void {
+  const html = buildComandaMesaHTML(dados)
+  const janela = window.open('', '_blank', 'width=420,height=700')
+  if (!janela) { alert('Permita pop-ups para imprimir a comanda.'); return }
+  janela.document.write(html)
+  janela.document.close()
+  janela.focus()
+  setTimeout(() => { janela.print(); janela.close() }, 400)
+}
