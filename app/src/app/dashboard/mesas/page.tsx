@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/client' // usado apenas para realtime
 
 type ItemPedido = {
   id: number
@@ -92,18 +92,9 @@ export default function MesasPage() {
 
   async function carregarFechadas() {
     setLoadingFechadas(true)
-    const supabase = createClient()
-    const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-    const { data } = await supabase
-      .from('sessoes_mesa')
-      .select(`
-        id, mesa_numero, nome_cliente, status, aberta_em, fechada_em, pagamento,
-        pedidos(id, numero_seq, subtotal, total, pagamento, created_at, status_pedido, itens_pedido(id, nome_snapshot, quantidade, preco_snapshot))
-      `)
-      .eq('status', 'fechada')
-      .gte('fechada_em', `${hoje}T03:00:00.000Z`)
-      .order('fechada_em', { ascending: false })
-    setSessoesFechadas((data ?? []) as unknown as Sessao[])
+    const res = await fetch('/api/mesas/sessoes/fechadas')
+    const data = await res.json()
+    setSessoesFechadas(data.sessoes ?? [])
     setLoadingFechadas(false)
   }
 

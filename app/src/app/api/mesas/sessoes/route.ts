@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // GET /api/mesas/sessoes — todas as sessões abertas com pedidos
 export async function GET() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { data: sessoes, error } = await supabase
     .from('sessoes_mesa')

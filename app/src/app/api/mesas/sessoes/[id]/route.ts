@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // PATCH /api/mesas/sessoes/[id] — fechar sessão de mesa
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -11,7 +11,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Forma de pagamento obrigatória' }, { status: 400 })
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
+
+  // Calcula o total da sessão somando os pedidos aceitos
+  const { data: sessao } = await supabase
+    .from('sessoes_mesa')
+    .select('id, pedidos(total)')
+    .eq('id', Number(id))
+    .single()
+
+  const totalSessao = (sessao?.pedidos as { total: number }[] | null)
+    ?.reduce((s, p) => s + Number(p.total), 0) ?? 0
 
   const { error } = await supabase
     .from('sessoes_mesa')
@@ -20,6 +30,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       pagamento,
       observacoes: observacoes || null,
       fechada_em: new Date().toISOString(),
+      total: totalSessao,
     })
     .eq('id', Number(id))
 
