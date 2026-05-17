@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { playSoundPorStatus, vibrar, pedirPermissaoNotificacao, mostrarNotificacaoBrowser, desbloquearAudio } from '@/lib/notificationSound'
@@ -72,18 +72,37 @@ export default function ComandaPage() {
   const [mesaNome, setMesaNome] = useState('')
   const [erro, setErro] = useState('')
   const [notifBanner, setNotifBanner] = useState<NotifBanner | null>(null)
+  const [sessaoEncerrada, setSessaoEncerrada] = useState(false)
+  // Ref para saber se já tivemos uma sessão aberta nesta visita
+  const sessaoAbertaRef = useRef(false)
+
+  const encerrarLocalmente = useCallback(() => {
+    // Limpa o storage para que o próximo acesso ao QR peça novo nome
+    sessionStorage.removeItem('pwa_mesa')
+    setSessaoEncerrada(true)
+  }, [])
 
   const carregarSessao = useCallback(async () => {
     try {
       const res = await fetch(`/api/mesas/sessoes/ativa?mesa=${numero}`)
       const data = await res.json()
-      setSessao(data.sessao ?? null)
+      if (data.sessao) {
+        sessaoAbertaRef.current = true
+        setSessao(data.sessao)
+      } else {
+        // Sessão sumiu — se antes estava aberta, o atendente encerrou a mesa
+        if (sessaoAbertaRef.current) {
+          encerrarLocalmente()
+        } else {
+          setSessao(null)
+        }
+      }
     } catch {
       setErro('Erro ao carregar comanda')
     } finally {
       setLoading(false)
     }
-  }, [numero])
+  }, [numero, encerrarLocalmente])
 
   function dispararNotificacao(numeroPedido: number, statusPedido: string, statusValidacao: string) {
     const key = statusValidacao === 'recusado' ? 'recusado'
@@ -171,6 +190,19 @@ export default function ComandaPage() {
       }, () => {
         carregarSessao()
       })
+      // Detecta fechamento da sessão pelo dashboard (UPDATE em sessoes_mesa)
+      // Sem filtro server-side pois REPLICA IDENTITY FULL pode não estar ativo;
+      // filtramos client-side pelo mesa_numero e status.
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'sessoes_mesa',
+      }, payload => {
+        const row = payload.new as { mesa_numero?: number; status?: string }
+        if (row.mesa_numero === numero && row.status === 'fechada') {
+          encerrarLocalmente()
+        }
+      })
       .subscribe()
 
     // Polling a cada 30s como fallback caso o realtime falhe
@@ -181,7 +213,7 @@ export default function ComandaPage() {
       clearInterval(interval)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [numero, carregarSessao])
+  }, [numero, carregarSessao, encerrarLocalmente])
 
   const totalGeral = sessao?.pedidos.reduce((s, p) => s + Number(p.total), 0) ?? 0
   const totalItens = sessao?.pedidos.reduce((s, p) => s + p.itens_pedido.reduce((si, i) => si + i.quantidade, 0), 0) ?? 0
@@ -190,6 +222,37 @@ export default function ComandaPage() {
     return (
       <div className="pwa-screen" style={{ alignItems: 'center', justifyContent: 'center' }}>
         <div className="pwa-spinner" />
+      </div>
+    )
+  }
+
+  // Sessão encerrada pelo atendente
+  if (sessaoEncerrada) {
+    return (
+      <div className="pwa-screen" style={{ alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+        <div style={{ textAlign: 'center', maxWidth: 320 }}>
+          <div style={{ fontSize: 64, marginBottom: 16 }}>🏁</div>
+          <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1E1E1C', margin: '0 0 8px' }}>
+            Mesa encerrada
+          </h2>
+          <p style={{ fontSize: 14, color: '#666', lineHeight: 1.6, margin: '0 0 28px' }}>
+            O atendente encerrou a comanda da Mesa {numero}.{'\n'}
+            O pagamento foi registrado. Obrigado pela visita!
+          </p>
+          <button
+            className="pwa-btn pwa-btn-primary"
+            onClick={() => router.replace(`/pwa/mesa/${numero}`)}
+            style={{ marginBottom: 12 }}
+          >
+            🍽️ Abrir nova comanda
+          </button>
+          <button
+            className="pwa-btn pwa-btn-ghost"
+            onClick={() => router.replace('/pwa')}
+          >
+            Ir para o início
+          </button>
+        </div>
       </div>
     )
   }
