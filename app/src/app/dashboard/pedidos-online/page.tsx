@@ -103,6 +103,9 @@ export default function PedidosOnlinePage() {
   const [alertaBanner, setAlertaBanner] = useState(false)
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tituloPagina = useRef('Pedidos Online')
+  // IDs dos pedidos pendentes já conhecidos — para detectar novos em qualquer origem
+  const knownPendingIds = useRef<Set<number>>(new Set())
+  const primeiraCargatRef = useRef(true)
 
   const carregarPedidos = useCallback(async (todos = false) => {
     const supabase = createClient()
@@ -127,8 +130,25 @@ export default function PedidosOnlinePage() {
     }
 
     const { data } = await q
-    if (data) setPedidos(data as unknown as Pedido[])
+    if (data) {
+      const rows = data as unknown as Pedido[]
+      // Detecta pedidos pendentes que ainda não estavam na lista conhecida
+      const pendentesNovos = rows.filter(
+        p => p.status_validacao === 'pendente' && !knownPendingIds.current.has(p.id)
+      )
+      // Atualiza o conjunto de IDs conhecidos
+      knownPendingIds.current = new Set(
+        rows.filter(p => p.status_validacao === 'pendente').map(p => p.id)
+      )
+      // Dispara alerta para novos pedidos (exceto na primeira carga)
+      if (!primeiraCargatRef.current && pendentesNovos.length > 0) {
+        dispararAlertaNovoPedido()
+      }
+      primeiraCargatRef.current = false
+      setPedidos(rows)
+    }
     setLoading(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function dispararAlertaNovoPedido() {
@@ -162,7 +182,6 @@ export default function PedidosOnlinePage() {
       .channel('portal-pedidos-online')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pedidos' }, () => {
         carregarPedidos(verTodos)
-        dispararAlertaNovoPedido()
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pedidos' }, () => carregarPedidos(verTodos))
       .subscribe()
