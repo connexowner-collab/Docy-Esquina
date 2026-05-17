@@ -69,10 +69,15 @@ export default function MesasPage() {
     const supabase = createClient()
     const ch = supabase
       .channel('mesas-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: 'origem=eq.mesa' }, () => carregarSessoes())
+      // Escuta qualquer mudança em pedidos (INSERT de novos pedidos de mesa + UPDATE de status)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pedidos' }, () => carregarSessoes())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pedidos' }, () => carregarSessoes())
+      // Escuta abertura/fechamento de sessões
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sessoes_mesa' }, () => carregarSessoes())
       .subscribe()
-    return () => { supabase.removeChannel(ch) }
+    // Polling de 30s como fallback
+    const timer = setInterval(carregarSessoes, 30000)
+    return () => { supabase.removeChannel(ch); clearInterval(timer) }
   }, [carregarSessoes])
 
   async function fecharMesa() {

@@ -184,7 +184,8 @@ export default function PedidosOnlinePage() {
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pedidos' }, () => carregarPedidos(verTodos))
       .subscribe()
-    const timer = setInterval(() => carregarPedidos(verTodos), 60000)
+    // Polling de 15s como fallback caso o realtime não esteja configurado
+    const timer = setInterval(() => carregarPedidos(verTodos), 15000)
     return () => { supabase.removeChannel(channel); clearInterval(timer) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carregarPedidos, verTodos])
