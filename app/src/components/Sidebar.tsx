@@ -80,6 +80,8 @@ export default function Sidebar({ nomeEstabelecimento }: { nomeEstabelecimento: 
   const pathname = usePathname()
   const router = useRouter()
   const [pedidosPendentes, setPedidosPendentes] = useState(0)
+  const [pwaAberto, setPwaAberto] = useState<boolean | null>(null)
+  const [togglingPwa, setTogglingPwa] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -104,6 +106,24 @@ export default function Sidebar({ nomeEstabelecimento }: { nomeEstabelecimento: 
 
     return () => { supabase.removeChannel(channel) }
   }, [])
+
+  // Carrega estado inicial do PWA
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('configuracoes').select('pwa_ativo').single().then(({ data }) => {
+      if (data) setPwaAberto(data.pwa_ativo ?? true)
+    })
+  }, [])
+
+  async function togglePwa() {
+    if (pwaAberto === null || togglingPwa) return
+    setTogglingPwa(true)
+    const novoEstado = !pwaAberto
+    const supabase = createClient()
+    await supabase.from('configuracoes').update({ pwa_ativo: novoEstado }).eq('id', 1)
+    setPwaAberto(novoEstado)
+    setTogglingPwa(false)
+  }
 
   async function handleLogout() {
     const supabase = createClient()
@@ -171,25 +191,47 @@ export default function Sidebar({ nomeEstabelecimento }: { nomeEstabelecimento: 
 
       {/* Bottom section */}
       <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-        {/* Open Kitchen button */}
-        <button style={{
-          width: '100%',
-          background: '#C0392B',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 10,
-          padding: '13px 0',
-          fontSize: 13,
-          fontWeight: 700,
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          marginBottom: 8,
-        }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 002-2V2M7 2v20M21 15V2a5 5 0 00-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/></svg>
-          Abrir Cozinha
+        {/* Botão abrir/fechar PWA */}
+        <button
+          onClick={togglePwa}
+          disabled={pwaAberto === null || togglingPwa}
+          style={{
+            width: '100%',
+            background: pwaAberto ? '#0F6E56' : '#C0392B',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 10,
+            padding: '11px 0',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: pwaAberto === null || togglingPwa ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            marginBottom: 8,
+            opacity: togglingPwa ? 0.7 : 1,
+            transition: 'background 0.25s, opacity 0.15s',
+          }}
+        >
+          {togglingPwa ? (
+            <>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'pwa-spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" opacity=".2"/><path d="M21 12a9 9 0 00-9-9"/></svg>
+              Aguarde...
+            </>
+          ) : pwaAberto ? (
+            <>
+              {/* ícone check — aberto */}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>
+              PWA Aberto — Fechar
+            </>
+          ) : (
+            <>
+              {/* ícone X — fechado */}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+              PWA Fechado — Abrir
+            </>
+          )}
         </button>
 
         {/* Support */}
