@@ -46,10 +46,11 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const digits = telefone.replace(/\D/g, '')
 
-  // Busca coordenadas da loja para cálculo de distância
+  // Busca coordenadas da loja para cálculo de distância.
+  // Apenas lat/lng — cidade_origem NÃO deve ser repassada como cidade do cliente.
   const { data: config } = await supabase
     .from('configuracoes')
-    .select('lat_origem, lng_origem, cidade_origem, uf_origem')
+    .select('lat_origem, lng_origem')
     .single()
 
   const latOrigem = config?.lat_origem ? Number(config.lat_origem) : null
@@ -82,8 +83,7 @@ export async function POST(req: NextRequest) {
             numero: e.numero ?? 'S/N',
             bairro: e.bairro,
             cep: e.cep,
-            cidade: config?.cidade_origem ?? undefined,
-            uf: config?.uf_origem ?? undefined,
+            // cidade/uf são resolvidos internamente via ViaCEP a partir do CEP do cliente
             latOrigem,
             lngOrigem,
           })

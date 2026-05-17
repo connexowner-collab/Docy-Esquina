@@ -12,16 +12,19 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createClient()
 
-  // Busca coordenadas da loja
+  // Busca coordenadas da loja (apenas lat/lng — cidade da loja NÃO deve ser
+  // repassada como cidade do cliente, pois causaria geocodificação errada)
   const { data: config } = await supabase
     .from('configuracoes')
-    .select('lat_origem, lng_origem, cidade_origem, uf_origem')
+    .select('lat_origem, lng_origem')
     .single()
 
   const latOrigem = config?.lat_origem ? Number(config.lat_origem) : null
   const lngOrigem = config?.lng_origem ? Number(config.lng_origem) : null
 
-  // Calcula distância automaticamente
+  // Calcula distância automaticamente.
+  // A cidade do cliente é obtida via ViaCEP a partir do CEP informado,
+  // garantindo que o geocode aponte para a cidade correta do cliente.
   let distancia_km: number | null = null
   if (latOrigem && lngOrigem) {
     distancia_km = await calcularDistanciaParaLoja({
@@ -29,8 +32,7 @@ export async function POST(req: NextRequest) {
       numero,
       bairro,
       cep,
-      cidade: config?.cidade_origem ?? undefined,
-      uf: config?.uf_origem ?? undefined,
+      // cidade e uf são resolvidos internamente via ViaCEP quando cep está presente
       latOrigem,
       lngOrigem,
     })

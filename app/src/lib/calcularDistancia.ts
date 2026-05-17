@@ -3,6 +3,20 @@
 
 const GOOGLE_KEY = process.env.GOOGLE_MAPS_API_KEY
 
+// Busca cidade/UF a partir do CEP usando ViaCEP (gratuito, sem API key)
+async function cidadePorCEP(cep: string): Promise<{ cidade: string; uf: string } | null> {
+  try {
+    const digits = cep.replace(/\D/g, '')
+    if (digits.length !== 8) return null
+    const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`, { signal: AbortSignal.timeout(4000) })
+    const data = await res.json()
+    if (data && !data.erro && data.localidade && data.uf) {
+      return { cidade: data.localidade, uf: data.uf }
+    }
+  } catch {}
+  return null
+}
+
 async function geocodificarGoogle(endereco: string): Promise<{ lat: number; lng: number } | null> {
   if (!GOOGLE_KEY) return null
   try {
@@ -86,14 +100,22 @@ export async function calcularDistanciaParaLoja(params: {
   numero?: string
   bairro?: string
   cep?: string
-  cidade?: string
+  cidade?: string  // cidade do CLIENTE — nunca passe a cidade da loja aqui
   uf?: string
   latOrigem: number
   lngOrigem: number
 }): Promise<number | null> {
-  const { logradouro, numero, bairro, cep, cidade, uf, latOrigem, lngOrigem } = params
+  const { logradouro, numero, bairro, cep, latOrigem, lngOrigem } = params
+  let { cidade, uf } = params
 
-  // Monta string de endereço completo
+  // Se cidade não foi informada mas há CEP, busca cidade real via ViaCEP
+  // Isso evita o bug de passar a cidade da loja como cidade do cliente
+  if (!cidade && cep) {
+    const cepData = await cidadePorCEP(cep)
+    if (cepData) { cidade = cepData.cidade; uf = cepData.uf }
+  }
+
+  // Monta string de endereço completo do CLIENTE
   const partes = [
     logradouro && numero ? `${logradouro}, ${numero}` : logradouro,
     bairro,
@@ -104,12 +126,12 @@ export async function calcularDistanciaParaLoja(params: {
 
   let geo: { lat: number; lng: number } | null = null
 
-  // Tenta com endereço completo
+  // 1. Tenta com endereço completo (rua + bairro + cidade via ViaCEP)
   if (partes.length > 1) {
     geo = await geocodificar(partes.join(', '))
   }
 
-  // Fallback: só CEP
+  // 2. Fallback: geocodifica só pelo CEP (posição aproximada do logradouro)
   if (!geo && cep) {
     const digits = cep.replace(/\D/g, '')
     geo = await geocodificar(`${digits}, Brasil`)
