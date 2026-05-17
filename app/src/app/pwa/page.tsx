@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 function formatPhone(digits: string): string {
@@ -72,7 +72,9 @@ function isAtivo(status: string) {
 export default function PwaIdentPage() {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [rawDigits, setRawDigits] = useState('')
+  const [aguardandoBusca, setAguardandoBusca] = useState(false)
   const [step, setStep] = useState<Step>('phone')
   const [cliente, setCliente] = useState<ClienteData | null>(null)
   const [pedidos, setPedidos] = useState<PedidoResumo[]>([])
@@ -128,23 +130,34 @@ export default function PwaIdentPage() {
     }
   }
 
-  function handlePhoneChange(v: string) {
+  const handlePhoneChange = useCallback((v: string) => {
     const digits = v.replace(/\D/g, '').slice(0, 11)
     setRawDigits(digits)
-    if (step === 'found' || step === 'menu') {
-      if (digits.length < 10) {
-        setStep('phone')
-        setCliente(null)
-        setPedidos([])
-      } else {
-        buscarCliente(digits)
-      }
-    } else {
-      if (digits.length === 10 || digits.length === 11) {
-        buscarCliente(digits)
-      }
+
+    // Cancela qualquer busca pendente
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = null
     }
-  }
+    setAguardandoBusca(false)
+
+    // Resetar estado se apagou dígitos enquanto estava em menu/found
+    if ((step === 'found' || step === 'menu') && digits.length < 10) {
+      setStep('phone')
+      setCliente(null)
+      setPedidos([])
+      return
+    }
+
+    // Aguarda o usuário parar de digitar por 2s antes de buscar
+    if (digits.length === 10 || digits.length === 11) {
+      setAguardandoBusca(true)
+      debounceRef.current = setTimeout(() => {
+        setAguardandoBusca(false)
+        buscarCliente(digits)
+      }, 2000)
+    }
+  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function buscarCep(cep: string, setLog: (v: string) => void, setBairro: (v: string) => void, setBuscando: (v: boolean) => void) {
     const digits = cep.replace(/\D/g, '')
@@ -402,7 +415,14 @@ export default function PwaIdentPage() {
               </div>
             )}
 
-            {rawDigits.length > 0 && rawDigits.length < 10 && (
+            {aguardandoBusca && step !== 'loading' && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 0' }}>
+                <div className="pwa-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                <span style={{ color: 'var(--pwa-muted)', fontSize: 13 }}>Verificando número...</span>
+              </div>
+            )}
+
+            {rawDigits.length > 0 && rawDigits.length < 10 && !aguardandoBusca && (
               <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--pwa-muted)', marginTop: 8 }}>
                 DDD + número ({rawDigits.length}/10-11 dígitos)
               </p>
@@ -420,7 +440,7 @@ export default function PwaIdentPage() {
                 <div style={{ fontSize: 12, color: 'var(--pwa-muted)' }}>{formatPhone(rawDigits)}</div>
               </div>
               <button
-                onClick={() => { setStep('phone'); setRawDigits(''); setPedidos([]); setTimeout(() => inputRef.current?.focus(), 100) }}
+                onClick={() => { if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null } setAguardandoBusca(false); setStep('phone'); setRawDigits(''); setCliente(null); setPedidos([]); setTimeout(() => inputRef.current?.focus(), 100) }}
                 style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--pwa-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, textDecoration: 'underline' }}
               >
                 trocar
