@@ -52,6 +52,7 @@ export default function MesasPage() {
   const [pagamentoFechamento, setPagamentoFechamento] = useState<string>('pix')
   const [obsFechamento, setObsFechamento] = useState('')
   const [fechando, setFechando] = useState(false)
+  const [erroFechamento, setErroFechamento] = useState('')
   const [sessoesFechadas, setSessoesFechadas] = useState<Sessao[]>([])
   const [verFechadas, setVerFechadas] = useState(false)
   const [loadingFechadas, setLoadingFechadas] = useState(false)
@@ -83,13 +84,27 @@ export default function MesasPage() {
   async function fecharMesa() {
     if (!modalFechamento) return
     setFechando(true)
-    await fetch(`/api/mesas/sessoes/${modalFechamento.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pagamento: pagamentoFechamento, observacoes: obsFechamento }),
-    })
+    setErroFechamento('')
+    try {
+      const res = await fetch(`/api/mesas/sessoes/${modalFechamento.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pagamento: pagamentoFechamento, observacoes: obsFechamento }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setErroFechamento(data.error ?? 'Erro ao fechar mesa. Tente novamente.')
+        setFechando(false)
+        return
+      }
+    } catch {
+      setErroFechamento('Erro de conexão. Verifique sua internet.')
+      setFechando(false)
+      return
+    }
     setFechando(false)
     setModalFechamento(null)
+    setErroFechamento('')
     setPagamentoFechamento('pix')
     setObsFechamento('')
     await carregarSessoes()
@@ -305,7 +320,7 @@ export default function MesasPage() {
 
             <div style={{ display: 'flex', gap: 10 }}>
               <button
-                onClick={() => { setModalFechamento(null); setObsFechamento('') }}
+                onClick={() => { setModalFechamento(null); setObsFechamento(''); setErroFechamento('') }}
                 style={{ flex: 1, padding: 12, border: '1px solid #E0DDD5', borderRadius: 10, background: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}
               >
                 Cancelar
@@ -318,6 +333,11 @@ export default function MesasPage() {
                 {fechando ? 'Fechando...' : `✓ Confirmar recebimento`}
               </button>
             </div>
+            {erroFechamento && (
+              <p style={{ margin: '12px 0 0', fontSize: 13, color: '#C0392B', fontWeight: 600, textAlign: 'center' }}>
+                ⚠️ {erroFechamento}
+              </p>
+            )}
           </div>
         </div>
       )}
