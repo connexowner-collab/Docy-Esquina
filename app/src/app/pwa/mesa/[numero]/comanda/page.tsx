@@ -34,7 +34,7 @@ type Sessao = {
   pedidos: Pedido[]
 }
 
-type NotifBanner = { emoji: string; titulo: string; cor: string; bg: string; borda: string }
+type NotifBanner = { emoji: string; label: string; cor: string; bg: string; borda: string }
 
 function fmtMoeda(v: number) { return `R$ ${Number(v).toFixed(2).replace('.', ',')}` }
 function fmtTempo(iso: string) {
