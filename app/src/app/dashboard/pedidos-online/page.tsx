@@ -99,8 +99,6 @@ export default function PedidosOnlinePage() {
   const [modalRecusa, setModalRecusa] = useState<{ id: number; numero: number } | null>(null)
   const [motivoRecusa, setMotivoRecusa] = useState('')
   const [processando, setProcessando] = useState<number | null>(null)
-  const [lojaAberta, setLojaAberta] = useState<boolean | null>(null)
-  const [togglingLoja, setTogglingLoja] = useState(false)
   const [notifPermitida, setNotifPermitida] = useState(false)
   const [alertaBanner, setAlertaBanner] = useState(false)
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -132,22 +130,6 @@ export default function PedidosOnlinePage() {
     if (data) setPedidos(data as unknown as Pedido[])
     setLoading(false)
   }, [])
-
-  useEffect(() => {
-    const supabase = createClient()
-    supabase.from('configuracoes').select('pwa_ativo').single().then(({ data }) => {
-      if (data) setLojaAberta(data.pwa_ativo ?? true)
-    })
-  }, [])
-
-  async function toggleLoja() {
-    if (lojaAberta === null) return
-    setTogglingLoja(true)
-    const supabase = createClient()
-    await supabase.from('configuracoes').update({ pwa_ativo: !lojaAberta }).eq('id', 1)
-    setLojaAberta(v => !v)
-    setTogglingLoja(false)
-  }
 
   function dispararAlertaNovoPedido() {
     playNewOrderAlert()
@@ -409,26 +391,6 @@ export default function PedidosOnlinePage() {
               </button>
             </div>
 
-            {/* Toggle loja */}
-            {lojaAberta !== null && (
-              <button
-                onClick={toggleLoja}
-                disabled={togglingLoja}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '8px 14px', borderRadius: 10, cursor: togglingLoja ? 'not-allowed' : 'pointer',
-                  background: lojaAberta ? '#E1F5EE' : '#FEF2F2',
-                  border: `1.5px solid ${lojaAberta ? '#0F6E56' : '#C0392B'}`,
-                  fontFamily: 'inherit', flexShrink: 0,
-                }}>
-                <div style={{ width: 36, height: 20, borderRadius: 10, background: lojaAberta ? '#0F6E56' : '#ccc', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                  <span style={{ position: 'absolute', top: 2, left: lojaAberta ? 17 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
-                </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: lojaAberta ? '#0F6E56' : '#C0392B' }}>
-                  {togglingLoja ? '...' : lojaAberta ? 'Aberta' : 'Fechada'}
-                </span>
-              </button>
-            )}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
