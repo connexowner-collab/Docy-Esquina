@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import ResumoDiaModal from '@/components/ResumoDiaModal'
 import TopBar from '@/components/TopBar'
+import NovosPedidosMonitor from '@/components/NovosPedidosMonitor'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -25,6 +26,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </main>
       </div>
       <ResumoDiaModal />
+      <NovosPedidosMonitor />
     </div>
   )
 }

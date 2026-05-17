@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { playNewOrderAlert, pedirPermissaoNotificacao, mostrarNotificacaoBrowser, desbloquearAudio } from '@/lib/notificationSound'
 
 type StatusPedido = 'pendente' | 'em_preparo' | 'em_entrega' | 'entregue' | 'recusado'
 
@@ -99,13 +98,6 @@ export default function PedidosOnlinePage() {
   const [modalRecusa, setModalRecusa] = useState<{ id: number; numero: number } | null>(null)
   const [motivoRecusa, setMotivoRecusa] = useState('')
   const [processando, setProcessando] = useState<number | null>(null)
-  const [notifPermitida, setNotifPermitida] = useState(false)
-  const [alertaBanner, setAlertaBanner] = useState(false)
-  const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const tituloPagina = useRef('Pedidos Online')
-  // IDs dos pedidos pendentes já conhecidos — para detectar novos em qualquer origem
-  const knownPendingIds = useRef<Set<number>>(new Set())
-  const primeiraCargatRef = useRef(true)
 
   const carregarPedidos = useCallback(async (todos = false) => {
     const supabase = createClient()
@@ -132,48 +124,12 @@ export default function PedidosOnlinePage() {
     const { data } = await q
     if (data) {
       const rows = data as unknown as Pedido[]
-      // Detecta pedidos pendentes que ainda não estavam na lista conhecida
-      const pendentesNovos = rows.filter(
-        p => p.status_validacao === 'pendente' && !knownPendingIds.current.has(p.id)
-      )
-      // Atualiza o conjunto de IDs conhecidos
-      knownPendingIds.current = new Set(
-        rows.filter(p => p.status_validacao === 'pendente').map(p => p.id)
-      )
-      // Dispara alerta para novos pedidos (exceto na primeira carga)
-      if (!primeiraCargatRef.current && pendentesNovos.length > 0) {
-        dispararAlertaNovoPedido()
-      }
-      primeiraCargatRef.current = false
       setPedidos(rows)
     }
     setLoading(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function dispararAlertaNovoPedido() {
-    playNewOrderAlert()
-    mostrarNotificacaoBrowser('🔔 Novo pedido!', { body: 'Um cliente fez um pedido pelo app.', tag: 'novo-pedido' })
-    // Flash no título da aba
-    let flashing = true
-    const interval = setInterval(() => {
-      document.title = flashing ? '🔔 NOVO PEDIDO!' : tituloPagina.current
-      flashing = !flashing
-    }, 600)
-    setTimeout(() => { clearInterval(interval); document.title = tituloPagina.current }, 8000)
-    // Banner topo
-    setAlertaBanner(true)
-    if (bannerTimer.current) clearTimeout(bannerTimer.current)
-    bannerTimer.current = setTimeout(() => setAlertaBanner(false), 6000)
-  }
-
-  useEffect(() => {
-    tituloPagina.current = document.title
-    // Verificar permissão já concedida
-    if (typeof Notification !== 'undefined') {
-      setNotifPermitida(Notification.permission === 'granted')
-    }
-  }, [])
 
   useEffect(() => {
     carregarPedidos(verTodos)
@@ -412,47 +368,10 @@ export default function PedidosOnlinePage() {
 
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
-          <p style={{ margin: 0, fontSize: 12, color: '#888' }}>
-            Pedidos pelo app — atualiza em tempo real{verTodos ? ' · Todos os pedidos' : ' · Somente hoje'}
-          </p>
-          {!notifPermitida && typeof Notification !== 'undefined' && Notification.permission !== 'denied' && (
-            <button
-              onClick={async () => {
-                desbloquearAudio()
-                const perm = await pedirPermissaoNotificacao()
-                setNotifPermitida(perm === 'granted')
-              }}
-              style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, border: '1px solid #E8870A', background: '#FDF3E3', color: '#B8600A', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, whiteSpace: 'nowrap' }}>
-              🔔 Ativar notificações e som
-            </button>
-          )}
-          {notifPermitida && (
-            <span style={{ fontSize: 11, color: '#0F6E56', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span>🔔</span> Notificações ativas
-            </span>
-          )}
-        </div>
+        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#888' }}>
+          Pedidos pelo app — atualiza em tempo real{verTodos ? ' · Todos os pedidos' : ' · Somente hoje'}
+        </p>
       </div>
-
-      {/* Banner de novo pedido */}
-      {alertaBanner && (
-        <div style={{
-          background: '#C0392B', color: '#fff',
-          borderRadius: 10, padding: '12px 16px',
-          display: 'flex', alignItems: 'center', gap: 12,
-          marginBottom: 12, flexShrink: 0,
-          animation: 'pulse 0.5s ease infinite alternate',
-        }}>
-          <span style={{ fontSize: 22 }}>🔔</span>
-          <span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>Novo pedido recebido!</span>
-          <button
-            onClick={() => setAlertaBanner(false)}
-            style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
-            ✕
-          </button>
-        </div>
-      )}
 
       {/* Kanban */}
       {loading ? (
