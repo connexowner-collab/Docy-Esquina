@@ -77,6 +77,7 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
   const [erro, setErro] = useState('')
   const [tempoAtual, setTempoAtual] = useState(Date.now())
   const [notifBanner, setNotifBanner] = useState<{ icone: string; titulo: string; cor: string } | null>(null)
+  const [nomeEstabelecimento, setNomeEstabelecimento] = useState('Docy Esquina')
 
   function dispararNotificacao(status: StatusPedido) {
     const info = STATUS_INFO[status]
@@ -92,6 +93,9 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
   }
 
   useEffect(() => {
+    // Buscar nome do estabelecimento
+    fetch('/api/pwa/config').then(r => r.json()).then(d => { if (d?.nomeEstabelecimento) setNomeEstabelecimento(d.nomeEstabelecimento) }).catch(() => {})
+
     // Buscar snapshot inicial
     fetch(`/api/pwa/pedidos/${id}/status`)
       .then(r => r.json())
@@ -198,7 +202,7 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
       {/* Hero vermelho */}
       <div style={{ background: 'var(--pwa-primary)', color: '#fff', padding: '52px 20px 24px', position: 'relative' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Docy Esquina</div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{nomeEstabelecimento}</div>
           <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 20, padding: '4px 12px', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
             <span className="pwa-live-dot" style={{ background: status === 'entregue' ? '#6BE5A1' : status === 'recusado' ? '#F09595' : '#6BE5A1' }} />
             Ao vivo
@@ -308,15 +312,16 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
             className="pwa-btn pwa-btn-primary"
             onClick={() => { sessionStorage.removeItem('pwa_cart'); router.push('/pwa/cardapio') }}
           >
-            🛒 Fazer novo pedido
+            {status === 'recusado' ? '🔄 Tentar fazer novo pedido' : '🛒 Fazer novo pedido'}
           </button>
-          <button
-            className="pwa-btn pwa-btn-ghost"
-            style={{ marginTop: 8 }}
-            onClick={() => router.push('/pwa')}
-          >
-            ← Início
-          </button>
+          <div style={{ textAlign: 'center', marginTop: 14 }}>
+            <button
+              onClick={() => router.push('/pwa')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--pwa-muted)', textDecoration: 'underline', padding: '4px 8px' }}
+            >
+              ← voltar ao início
+            </button>
+          </div>
         </div>
       </div>
     </div>

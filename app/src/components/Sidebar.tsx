@@ -82,6 +82,7 @@ export default function Sidebar({ nomeEstabelecimento }: { nomeEstabelecimento: 
   const [pedidosPendentes, setPedidosPendentes] = useState(0)
   const [pwaAberto, setPwaAberto] = useState<boolean | null>(null)
   const [togglingPwa, setTogglingPwa] = useState(false)
+  const [confirmarFecharPwa, setConfirmarFecharPwa] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -191,54 +192,74 @@ export default function Sidebar({ nomeEstabelecimento }: { nomeEstabelecimento: 
 
       {/* Bottom section */}
       <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-        {/* Botão abrir/fechar PWA */}
-        <button
-          onClick={togglePwa}
-          disabled={pwaAberto === null || togglingPwa}
-          style={{
-            width: '100%',
-            background: pwaAberto ? '#0F6E56' : '#C0392B',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 10,
-            padding: '11px 0',
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: pwaAberto === null || togglingPwa ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            marginBottom: 8,
-            opacity: togglingPwa ? 0.7 : 1,
-            transition: 'background 0.25s, opacity 0.15s',
-          }}
-        >
-          {togglingPwa ? (
-            <>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'pwa-spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" opacity=".2"/><path d="M21 12a9 9 0 00-9-9"/></svg>
-              Aguarde...
-            </>
-          ) : pwaAberto ? (
-            <>
-              {/* ícone check — aberto */}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>
-              PWA Aberto — Fechar
-            </>
-          ) : (
-            <>
-              {/* ícone X — fechado */}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
-              PWA Fechado — Abrir
-            </>
-          )}
-        </button>
+        {/* Botão abrir/fechar PWA com confirmação ao fechar */}
+        {confirmarFecharPwa ? (
+          <div style={{ background: '#2a2a3e', borderRadius: 10, padding: '12px 12px 10px', marginBottom: 8 }}>
+            <p style={{ color: '#e0e0e0', fontSize: 11, margin: '0 0 10px', lineHeight: 1.5 }}>
+              ⚠️ Fechar o PWA impede novos pedidos. Confirmar?
+            </p>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                onClick={() => setConfirmarFecharPwa(false)}
+                style={{ flex: 1, padding: '7px', background: 'transparent', border: '1px solid #555', borderRadius: 7, color: '#aaa', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { setConfirmarFecharPwa(false); togglePwa() }}
+                style={{ flex: 1, padding: '7px', background: '#C0392B', border: 'none', borderRadius: 7, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={pwaAberto ? () => setConfirmarFecharPwa(true) : togglePwa}
+            disabled={pwaAberto === null || togglingPwa}
+            style={{
+              width: '100%',
+              background: pwaAberto ? '#0F6E56' : '#C0392B',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 10,
+              padding: '11px 0',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: pwaAberto === null || togglingPwa ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              marginBottom: 8,
+              opacity: togglingPwa ? 0.7 : 1,
+              transition: 'background 0.25s, opacity 0.15s',
+            }}
+          >
+            {togglingPwa ? (
+              <>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'pwa-spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" opacity=".2"/><path d="M21 12a9 9 0 00-9-9"/></svg>
+                Aguarde...
+              </>
+            ) : pwaAberto ? (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>
+                PWA Aberto — Fechar
+              </>
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                PWA Fechado — Abrir
+              </>
+            )}
+          </button>
+        )}
 
         {/* Support */}
-        <button style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: 'transparent', border: 'none', borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: 0.8, color: '#666', cursor: 'pointer', textTransform: 'uppercase' }}>
+        <a href="mailto:connex.owner@gmail.com" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: 'transparent', borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: 0.8, color: '#666', textDecoration: 'none', textTransform: 'uppercase', boxSizing: 'border-box' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
           Suporte
-        </button>
+        </a>
 
         {/* Log Out */}
         <button

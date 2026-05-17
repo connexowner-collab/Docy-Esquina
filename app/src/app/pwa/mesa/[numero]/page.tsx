@@ -128,6 +128,15 @@ export default function PwaMesaPage() {
             {verificando ? 'Aguarde...' : '🛒 Abrir cardápio →'}
           </button>
         </form>
+
+        <div style={{ textAlign: 'center', marginTop: 20 }}>
+          <a
+            href="/"
+            style={{ fontSize: 12, color: 'var(--pwa-muted)', textDecoration: 'none', padding: '6px 12px', display: 'inline-block' }}
+          >
+            ✕ sair
+          </a>
+        </div>
       </div>
     </div>
   )

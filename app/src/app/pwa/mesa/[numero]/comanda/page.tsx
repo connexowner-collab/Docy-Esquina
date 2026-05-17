@@ -290,24 +290,24 @@ export default function ComandaPage() {
 
       {/* Navbar */}
       <div className="pwa-navbar">
-        <button onClick={() => router.push('/pwa/cardapio')} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', padding: 0 }}>←</button>
+        <button onClick={() => router.push('/pwa/cardapio')} aria-label="Voltar" style={{ background: 'none', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', padding: 0, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 13, fontWeight: 700 }}>🍽️ Mesa {numero}</div>
           <div style={{ fontSize: 11, opacity: 0.8 }}>Minha Comanda</div>
         </div>
         <button
           onClick={carregarSessao}
-          style={{ background: 'none', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', padding: 0 }}
-          title="Atualizar"
+          aria-label="Atualizar"
+          style={{ background: 'none', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', padding: 0, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >↻</button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 120px' }}>
 
         {/* Cabeçalho da comanda */}
-        <div style={{ background: '#FEF2F2', border: '1.5px solid #C0392B', borderRadius: 'var(--pwa-r-lg)', padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ background: '#EEF4FC', border: '1.5px solid #B5D4F4', borderRadius: 'var(--pwa-r-lg)', padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 16, color: '#C0392B' }}>Mesa {numero}</div>
+            <div style={{ fontWeight: 800, fontSize: 16, color: '#185FA5' }}>Mesa {numero}</div>
             <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{mesaNome} · {sessao ? `${sessao.pedidos.length} pedido${sessao.pedidos.length !== 1 ? 's' : ''}` : 'Nenhum pedido'}</div>
           </div>
           <div style={{ textAlign: 'right' }}>

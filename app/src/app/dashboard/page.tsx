@@ -100,7 +100,24 @@ export default function DashboardPage() {
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>Carregando KPIs...</div>
+        <>
+          <style>{`@keyframes skel-pulse{0%,100%{opacity:.4}50%{opacity:.85}}`}</style>
+          <SectionTitle>Hoje</SectionTitle>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
+            {[1,2,3].map(i => <div key={i} style={{ background: '#e8e8ee', borderRadius: 14, height: 90, animation: `skel-pulse 1.4s ease-in-out ${i * 0.1}s infinite` }} />)}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 28 }}>
+            {[1,2,3].map(i => <div key={i} style={{ background: '#e8e8ee', borderRadius: 14, height: 90, animation: `skel-pulse 1.4s ease-in-out ${i * 0.15}s infinite` }} />)}
+          </div>
+          <SectionTitle>Pagamento Hoje</SectionTitle>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
+            {[1,2,3,4].map(i => <div key={i} style={{ background: '#e8e8ee', borderRadius: 12, height: 76, animation: `skel-pulse 1.4s ease-in-out ${i * 0.1}s infinite` }} />)}
+          </div>
+          <SectionTitle>Este Mês</SectionTitle>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 28 }}>
+            {[1,2,3].map(i => <div key={i} style={{ background: '#e8e8ee', borderRadius: 14, height: 90, animation: `skel-pulse 1.4s ease-in-out ${i * 0.1}s infinite` }} />)}
+          </div>
+        </>
       ) : !data ? (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>Erro ao carregar dados.</div>
       ) : (

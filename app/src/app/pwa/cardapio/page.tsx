@@ -123,7 +123,7 @@ export default function PwaCardapioPage() {
     <div className="pwa-screen" style={{ paddingBottom: cartCount > 0 ? 90 : 0 }}>
       {/* Navbar */}
       <div className="pwa-navbar">
-        <button onClick={() => mesaInfo ? router.push(`/pwa/mesa/${mesaInfo.numero}`) : router.push('/pwa')} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', padding: 0, lineHeight: 1 }}>←</button>
+        <button onClick={() => mesaInfo ? router.push(`/pwa/mesa/${mesaInfo.numero}`) : router.push('/pwa')} aria-label="Voltar" style={{ background: 'none', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', padding: 0, lineHeight: 1, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
         <div style={{ textAlign: 'center' }}>
           {mesaInfo ? (
             <div style={{ fontSize: 13, fontWeight: 700 }}>🍽️ Mesa {mesaInfo.numero} · {clienteNome}</div>

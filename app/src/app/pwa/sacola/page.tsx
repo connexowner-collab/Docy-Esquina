@@ -178,7 +178,7 @@ export default function PwaSacolaPage() {
   return (
     <div className="pwa-screen">
       <div className="pwa-navbar">
-        <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', padding: 0 }}>←</button>
+        <button onClick={() => router.back()} aria-label="Voltar" style={{ background: 'none', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', padding: 0, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
         <div style={{ fontSize: 17, fontWeight: 600 }}>Sacola</div>
         <div style={{ width: 32 }} />
       </div>

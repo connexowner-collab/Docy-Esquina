@@ -95,6 +95,9 @@ export default function PwaIdentPage() {
   // Popup de frete
   const [fretePopup, setFretePopup] = useState<{ distancia_km: number | null; taxa: number | null; onConfirmar: () => void } | null>(null)
 
+  // Confirmação de trocar número
+  const [confirmarTrocar, setConfirmarTrocar] = useState(false)
+
   // Adicionar endereço a cliente existente
   const [addingAddress, setAddingAddress] = useState(false)
   const [addCep, setAddCep] = useState('')
@@ -439,12 +442,26 @@ export default function PwaIdentPage() {
                 <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--pwa-ink)' }}>Olá, {cliente.nome.split(' ')[0]}! 👋</div>
                 <div style={{ fontSize: 12, color: 'var(--pwa-muted)' }}>{formatPhone(rawDigits)}</div>
               </div>
-              <button
-                onClick={() => { if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null } setAguardandoBusca(false); setStep('phone'); setRawDigits(''); setCliente(null); setPedidos([]); setTimeout(() => inputRef.current?.focus(), 100) }}
-                style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--pwa-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, textDecoration: 'underline' }}
-              >
-                trocar
-              </button>
+              {confirmarTrocar ? (
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 11, color: 'var(--pwa-muted)' }}>Tem certeza?</span>
+                  <button
+                    onClick={() => { setConfirmarTrocar(false); if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null } setAguardandoBusca(false); setStep('phone'); setRawDigits(''); setCliente(null); setPedidos([]); setTimeout(() => inputRef.current?.focus(), 100) }}
+                    style={{ fontSize: 11, color: 'var(--pwa-red-ink)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, fontWeight: 700 }}
+                  >Sim</button>
+                  <button
+                    onClick={() => setConfirmarTrocar(false)}
+                    style={{ fontSize: 11, color: 'var(--pwa-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6 }}
+                  >Não</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmarTrocar(true)}
+                  style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--pwa-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, textDecoration: 'underline' }}
+                >
+                  trocar
+                </button>
+              )}
             </div>
 
             {/* Pedidos em andamento */}
@@ -539,10 +556,18 @@ export default function PwaIdentPage() {
         {/* STEP: cliente encontrado — seleção de endereço */}
         {step === 'found' && cliente && (
           <>
-            <h2 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 4px' }}>Escolha o endereço</h2>
-            <p style={{ fontSize: 13, color: 'var(--pwa-muted)', margin: '0 0 14px' }}>
-              Para onde devemos entregar?
-            </p>
+            {/* Seta de voltar ao menu */}
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
+              <button
+                onClick={() => setStep('menu')}
+                aria-label="Voltar"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginRight: 8, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', color: 'var(--pwa-muted)', fontSize: 26, flexShrink: 0, lineHeight: 1 }}
+              >‹</button>
+              <div>
+                <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Escolha o endereço</h2>
+                <p style={{ fontSize: 13, color: 'var(--pwa-muted)', margin: 0 }}>Para onde devemos entregar?</p>
+              </div>
+            </div>
 
             {/* Campo de telefone editável */}
             <div
@@ -657,21 +682,24 @@ export default function PwaIdentPage() {
               onClick={() => continuarComCliente(cliente, selectedEnd!)}>
               Continuar →
             </button>
-
-            <button className="pwa-btn pwa-btn-ghost" style={{ marginTop: 6 }}
-              onClick={() => setStep('menu')}>
-              ← Voltar
-            </button>
           </>
         )}
 
         {/* STEP: não encontrado */}
         {step === 'not-found' && (
           <>
-            <h2 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 4px' }}>Primeira vez aqui? 🎉</h2>
-            <p style={{ fontSize: 13, color: 'var(--pwa-muted)', margin: '0 0 18px' }}>
-              Não encontramos esse número. Vamos criar sua conta rapidinho!
-            </p>
+            {/* Seta de voltar */}
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+              <button
+                onClick={() => { setStep('phone'); setRawDigits(''); setTimeout(() => inputRef.current?.focus(), 100) }}
+                aria-label="Voltar"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginRight: 8, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', color: 'var(--pwa-muted)', fontSize: 26, flexShrink: 0, lineHeight: 1 }}
+              >‹</button>
+              <div>
+                <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Primeira vez aqui? 🎉</h2>
+                <p style={{ fontSize: 13, color: 'var(--pwa-muted)', margin: 0 }}>Vamos criar sua conta rapidinho!</p>
+              </div>
+            </div>
 
             <div style={{ background: 'var(--pwa-blue-bg)', border: '1px solid var(--pwa-blue-border)', borderRadius: 'var(--pwa-r-lg)', padding: '12px 14px', marginBottom: 18 }}>
               <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--pwa-blue-ink)' }}>Número digitado</div>
@@ -727,12 +755,22 @@ export default function PwaIdentPage() {
               <button className="pwa-btn pwa-btn-primary" type="submit" disabled={cadastrando}>
                 {cadastrando ? 'Cadastrando...' : 'Criar conta e pedir →'}
               </button>
+              {cadastrando && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 }}>
+                  <div className="pwa-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                  <span style={{ fontSize: 13, color: 'var(--pwa-muted)' }}>⏳ Calculando taxa de entrega...</span>
+                </div>
+              )}
             </form>
 
-            <button className="pwa-btn pwa-btn-ghost" style={{ marginTop: 8 }}
-              onClick={() => { setStep('phone'); setRawDigits(''); setTimeout(() => inputRef.current?.focus(), 100) }}>
-              ← Voltar
-            </button>
+            <div style={{ textAlign: 'center', marginTop: 14 }}>
+              <button
+                onClick={() => { setStep('phone'); setRawDigits(''); setTimeout(() => inputRef.current?.focus(), 100) }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--pwa-muted)', textDecoration: 'underline', padding: '4px 8px' }}
+              >
+                ← número errado? corrigir
+              </button>
+            </div>
           </>
         )}
       </div>
