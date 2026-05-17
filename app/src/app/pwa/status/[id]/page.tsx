@@ -3,7 +3,8 @@
 import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { playSoundPorStatus, vibrar, pedirPermissaoNotificacao, mostrarNotificacaoBrowser, desbloquearAudio, audioDesbloqueado } from '@/lib/notificationSound'
+import { playSoundPorStatus, vibrar, mostrarNotificacaoBrowser, desbloquearAudio } from '@/lib/notificationSound'
+import NotifPrompt from '@/components/pwa/NotifPrompt'
 
 type StatusPedido = 'pendente' | 'em_preparo' | 'em_entrega' | 'entregue' | 'recusado'
 
@@ -76,7 +77,6 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
   const [erro, setErro] = useState('')
   const [tempoAtual, setTempoAtual] = useState(Date.now())
   const [notifBanner, setNotifBanner] = useState<{ icone: string; titulo: string; cor: string } | null>(null)
-  const [somAtivado, setSomAtivado] = useState(false)
 
   function dispararNotificacao(status: StatusPedido) {
     const info = STATUS_INFO[status]
@@ -101,9 +101,6 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
       })
       .catch(() => setErro('Erro ao carregar pedido'))
       .finally(() => setLoading(false))
-
-    // Solicitar permissão de notificação ao carregar a página de status
-    pedirPermissaoNotificacao().catch(() => {})
 
     // Supabase Realtime — escutar atualizações do pedido
     const supabase = createClient()
@@ -167,6 +164,9 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
 
   return (
     <div className="pwa-screen">
+      {/* Solicita permissão de notificação na primeira vez */}
+      <NotifPrompt />
+
       {/* Banner de notificação de status */}
       {notifBanner && (() => {
         const c = corBanner[notifBanner.cor] ?? corBanner.green
@@ -299,28 +299,9 @@ export default function PwaStatusPage({ params }: { params: Promise<{ id: string
               <p style={{ fontSize: 12, color: 'var(--pwa-muted)', margin: '0 0 10px' }}>
                 Esta página atualiza automaticamente em tempo real
               </p>
-              {!somAtivado ? (
-                <button
-                  onClick={() => {
-                    desbloquearAudio()
-                    pedirPermissaoNotificacao()
-                    setSomAtivado(true)
-                  }}
-                  style={{
-                    background: 'var(--pwa-primary)', color: '#fff',
-                    border: 'none', borderRadius: 20, padding: '9px 20px',
-                    fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                    display: 'inline-flex', alignItems: 'center', gap: 8,
-                    boxShadow: '0 4px 14px -4px rgba(192,57,43,0.5)',
-                  }}
-                >
-                  🔔 Ativar som de notificação
-                </button>
-              ) : (
-                <p style={{ fontSize: 12, color: '#0F6E56', fontWeight: 600 }}>
-                  🔊 Som ativado — você será notificado quando o status mudar
-                </p>
-              )}
+              <p style={{ fontSize: 12, color: '#0F6E56', fontWeight: 600, margin: 0 }}>
+                🔔 Notificações ativas para este pedido
+              </p>
             </div>
           )}
           <button

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { playSoundPorStatus, vibrar, pedirPermissaoNotificacao, mostrarNotificacaoBrowser, desbloquearAudio } from '@/lib/notificationSound'
+import NotifPrompt from '@/components/pwa/NotifPrompt'
 
 type ItemPedido = {
   id: number
@@ -71,7 +72,6 @@ export default function ComandaPage() {
   const [mesaNome, setMesaNome] = useState('')
   const [erro, setErro] = useState('')
   const [notifBanner, setNotifBanner] = useState<NotifBanner | null>(null)
-  const [somAtivado, setSomAtivado] = useState(false)
 
   const carregarSessao = useCallback(async () => {
     try {
@@ -113,7 +113,6 @@ export default function ComandaPage() {
     if (mesa.numero !== numero) { router.replace(`/pwa/mesa/${numero}`); return }
     setMesaNome(mesa.nome)
     carregarSessao()
-    pedirPermissaoNotificacao().catch(() => {})
   }, [numero, router, carregarSessao])
 
   // Desbloqueia áudio na primeira interação do usuário com a página (iOS/Android)
@@ -198,6 +197,9 @@ export default function ComandaPage() {
   return (
     <div className="pwa-screen">
 
+      {/* Solicita permissão de notificação na primeira vez */}
+      <NotifPrompt />
+
       {/* Banner de notificação */}
       {notifBanner && (
         <div
@@ -251,29 +253,7 @@ export default function ComandaPage() {
           </div>
         </div>
 
-        {/* Botão ativar som */}
-        <div style={{ marginBottom: 16, textAlign: 'center' }}>
-          {!somAtivado ? (
-            <button
-              onClick={() => { desbloquearAudio(); pedirPermissaoNotificacao(); setSomAtivado(true) }}
-              style={{
-                background: 'var(--pwa-primary)', color: '#fff', border: 'none',
-                borderRadius: 20, padding: '9px 20px', fontSize: 13, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'inherit',
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                boxShadow: '0 4px 14px -4px rgba(192,57,43,0.4)',
-              }}
-            >
-              🔔 Ativar notificações de status
-            </button>
-          ) : (
-            <p style={{ fontSize: 12, color: '#0F6E56', fontWeight: 600, margin: 0 }}>
-              🔊 Notificações ativas — avisaremos quando seu pedido mudar
-            </p>
-          )}
-        </div>
-
-        {erro && <p style={{ color: 'var(--pwa-red-ink)', fontSize: 13, textAlign: 'center', marginBottom: 12 }}>{erro}</p>}
+        {erro &&<p style={{ color: 'var(--pwa-red-ink)', fontSize: 13, textAlign: 'center', marginBottom: 12 }}>{erro}</p>}
 
         {!sessao || sessao.pedidos.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--pwa-muted)' }}>

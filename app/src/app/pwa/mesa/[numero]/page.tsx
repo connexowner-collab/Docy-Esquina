@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { desbloquearAudio, pedirPermissaoNotificacao } from '@/lib/notificationSound'
 
 export default function PwaMesaPage() {
   const router = useRouter()
@@ -47,6 +48,10 @@ export default function PwaMesaPage() {
     if (!nome.trim()) { setErro('Digite seu nome para continuar'); return }
     setVerificando(true)
     setErro('')
+
+    // Gesto de usuário — desbloqueia áudio e solicita permissão de notificação
+    desbloquearAudio()
+    pedirPermissaoNotificacao().catch(() => {})
 
     sessionStorage.setItem('pwa_mesa', JSON.stringify({ numero, nome: nome.trim() }))
     router.push('/pwa/cardapio')
